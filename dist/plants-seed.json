@@ -1,0 +1,91 @@
+[
+  {
+    "scientificName": "Ginkgo biloba",
+    "imageUrl": "/plant-assets/64350.jpg",
+    "sourceUrl": "https://www.inaturalist.org/taxa/64350",
+    "description": "银杏科银杏属的落叶乔木。扇形叶片是认识它的重要线索，也可以留意长枝与短枝上不同的叶片排列。",
+    "family": "银杏科 · Ginkgoaceae",
+    "name": "银杏",
+    "imageAttribution": "(c) 鐦鍆錒/锎钔锕（Man Hoimoon）, some rights reserved (CC BY-NC), uploaded by 鐦鍆錒/锎钔锕（Man Hoimoon）",
+    "genus": "银杏属 · Ginkgo",
+    "taxonId": "64350",
+    "tags": [
+      "乔木",
+      "裸子植物"
+    ]
+  },
+  {
+    "scientificName": "Metasequoia glyptostroboides",
+    "imageUrl": "/plant-assets/69150.jpg",
+    "sourceUrl": "https://www.inaturalist.org/taxa/69150",
+    "description": "柏科水杉属的落叶乔木。可以观察成对排列的条形叶，以及随季节变化的叶色。",
+    "family": "柏科 · Cupressaceae",
+    "name": "水杉",
+    "imageAttribution": "(c) W Rao, some rights reserved (CC BY), uploaded by W Rao",
+    "genus": "水杉属 · Metasequoia",
+    "taxonId": "69150",
+    "tags": [
+      "乔木",
+      "裸子植物"
+    ]
+  },
+  {
+    "scientificName": "Taxus chinensis",
+    "imageUrl": "/plant-assets/153220.jpg",
+    "sourceUrl": "https://www.inaturalist.org/taxa/153220",
+    "description": "红豆杉科红豆杉属植物。观察条形叶与枝条的排列，记录书中对它的描述。",
+    "family": "红豆杉科 · Taxaceae",
+    "name": "红豆杉",
+    "imageAttribution": "(c) MP Zhou, some rights reserved (CC BY-NC), uploaded by MP Zhou",
+    "genus": "红豆杉属 · Taxus",
+    "taxonId": "153220",
+    "tags": [
+      "乔木",
+      "裸子植物"
+    ]
+  },
+  {
+    "scientificName": "Adiantum capillus-veneris",
+    "imageUrl": "/plant-assets/1670790.jpg",
+    "sourceUrl": "https://www.inaturalist.org/taxa/1670790",
+    "description": "铁线蕨属的蕨类植物。细长的深色叶柄与小叶片适合作为观察线索。",
+    "family": "凤尾蕨科 · Pteridaceae",
+    "name": "铁线蕨",
+    "imageAttribution": "(c) Radha Veach, some rights reserved (CC BY-NC), uploaded by Radha Veach",
+    "genus": "铁线蕨属 · Adiantum",
+    "taxonId": "1670790",
+    "tags": [
+      "蕨类",
+      "草本"
+    ]
+  },
+  {
+    "scientificName": "Liriodendron chinense",
+    "imageUrl": "/plant-assets/125421.jpg",
+    "sourceUrl": "https://www.inaturalist.org/taxa/125421",
+    "description": "木兰科鹅掌楸属的落叶乔木。叶片轮廓独特，可以把叶形和书中的文字一起记录下来。",
+    "family": "木兰科 · Magnoliaceae",
+    "name": "鹅掌楸",
+    "imageAttribution": "(c) James Gaither, some rights reserved (CC BY-NC-ND)",
+    "genus": "鹅掌楸属 · Liriodendron",
+    "taxonId": "125421",
+    "tags": [
+      "乔木",
+      "被子植物"
+    ]
+  },
+  {
+    "scientificName": "Alsophila spinulosa",
+    "imageUrl": "",
+    "sourceUrl": "https://www.inaturalist.org/taxa/142844",
+    "description": "桫椤科的树状蕨类植物。可关注直立的茎干和顶端展开的大型羽状叶。",
+    "family": "桫椤科 · Cyatheaceae",
+    "name": "桫椤",
+    "imageAttribution": "",
+    "genus": "桫椤属 · Alsophila",
+    "taxonId": "142844",
+    "tags": [
+      "蕨类"
+    ]
+  }
+]

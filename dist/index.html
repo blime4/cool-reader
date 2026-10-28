@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ed">
+  <meta name="description" content="书间 FOLIO：上传一本书，让人物、场景与文字化作可以探索的纸上风景。书籍仅在你的浏览器内处理。">
+  <title>书间 FOLIO — 让文字，跃然纸上</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M4 15v5h16v-5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5v16M3 4c5-1 7 0 9 2 2-2 4-3 9-2v15c-5-1-7 0-9 2-2-2-4-3-9-2Z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M5 3v18M12 3v18M19 3v18M2 8h6m1 8h6m1-9h6"/></symbol>
+  </defs></svg>
+
+  <header class="site-header">
+    <a href="./" class="brand" aria-label="书间 FOLIO 首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>书间<span>FOLIO</span></strong></a>
+    <nav aria-label="主导航"><a class="nav-current" href="#workspace">阅读工作台<span></span></a><a class="nav-link" href="/plants.html">植物志</a><button class="nav-link" id="sample-button">体验示例</button></nav>
+    <div class="header-actions"><span class="local-note"><i></i>一本书，一个小宇宙</span><button class="button button-dark upload-trigger"><svg><use href="#i-upload"/></svg>上传书籍</button></div>
+  </header>
+
+  <main id="workspace">
+    <section class="intro" aria-labelledby="intro-title">
+      <div><div class="eyebrow"><span class="tiny-line"></span>A DIFFERENT WAY TO READ</div><h1 id="intro-title">让文字，<em>跃然纸上。</em><span class="title-star" aria-hidden="true">✳</span></h1><p>翻开一本书，拾起人物、细节与故事的回声。</p></div>
+      <div class="intro-aside"><span>READ BETWEEN<br>THE LINES.</span><div class="intro-seal" aria-hidden="true"><svg><use href="#i-book"/></svg></div></div>
+    </section>
+
+    <section class="book-toolbar" aria-label="当前书籍">
+      <div class="book-identity"><span class="mini-cover" aria-hidden="true">书</span><div><div class="book-title-line"><h2 id="book-title">正在打开书本</h2><span id="demo-badge" class="demo-badge">示例书籍</span></div><p id="book-meta">让故事在这里展开</p></div></div>
+      <div class="book-stats"><div><strong id="stat-chapters">—</strong><span>个章节</span></div><div><strong id="stat-people">—</strong><span>位人物</span></div><div><strong id="stat-fragments">—</strong><span>段文字</span></div></div>
+      <button class="button button-quiet" id="export-button"><svg><use href="#i-download"/></svg><span>导出摘录</span></button>
+    </section>
+
+    <div class="workspace-grid">
+      <section class="reader-panel" aria-labelledby="reader-heading">
+        <div class="panel-heading"><h2 id="reader-heading"><span class="section-index">01</span>故事，在此展开</h2><div class="reader-heading-actions"><button class="text-button" id="read-source">阅读原文 ↗</button><button class="text-button" id="toggle-book"><svg><use href="#i-book"/></svg><span>收起书本</span></button></div></div>
+        <div class="book-stage" id="book-stage">
+          <div class="stage-topline"><span>THE LIVING BOOK</span><span><i></i>立体阅读</span></div>
+          <div class="stage-orbit orbit-one" aria-hidden="true"></div><div class="stage-orbit orbit-two" aria-hidden="true"></div>
+          <div class="book-shadow" aria-hidden="true"></div>
+          <div class="book-scene" id="book-scene">
+            <div class="physical-book" id="physical-book">
+              <div class="cover-back" aria-hidden="true"></div><div class="page-stack" aria-hidden="true"></div>
+              <div class="book-spread">
+                <div class="book-leaf leaf-left"><div class="page-running-title" id="page-running-title">书间 · FOLIO</div><div class="leaf-copy" id="page-left"></div><span class="page-folio" id="folio-left">1</span></div>
+                <div class="book-leaf leaf-right"><div class="page-running-title" id="page-chapter-title"></div><div class="leaf-copy" id="page-right"></div><span class="page-folio" id="folio-right">2</span></div>
+              </div>
+              <div class="turning-leaf" aria-hidden="true"></div><div class="book-ribbon" aria-hidden="true"></div>
+              <div class="closed-cover"><span>F O L I O</span><strong id="cover-title">书间</strong><i></i><small>每本书，都有自己的宇宙</small><svg><use href="#i-spark"/></svg></div>
+            </div>
+          </div>
+          <div class="floating-fragments" id="floating-fragments" aria-label="书中片段"></div>
+          <div class="stage-bottom"><span class="stage-caption">字里行间，自有天地。</span><span class="stage-hint"><svg><use href="#i-spark"/></svg>点击纸条，回到故事现场</span></div>
+        </div>
+        <div class="reader-controls"><div class="chapter-reading"><span class="reading-dot"></span><span id="reading-chapter">正在阅读</span></div><div class="page-controls"><button class="round-button" id="prev-page" aria-label="上一页">←</button><span><b id="page-number">1</b><i>/</i><span id="page-total">1</span></span><button class="round-button" id="next-page" aria-label="下一页">→</button></div></div>
+        <div class="reader-footnote"><span>每一个细节，都值得被看见</span><span>SCROLL THROUGH THE STORY ↗</span></div>
+      </section>
+
+      <section class="explorer-panel" aria-labelledby="explorer-heading">
+        <div class="panel-heading"><h2 id="explorer-heading"><span class="section-index">02</span>拾取字里行间</h2><span class="small-label">THE STORY ATLAS</span></div>
+        <div class="explorer-box">
+          <div class="filter-label"><span><svg><use href="#i-user"/></svg>跟随人物</span><button class="text-button" id="manage-people"><svg><use href="#i-sliders"/></svg>调整人物</button></div>
+          <div class="people-filters" id="people-filters" role="group" aria-label="按人物筛选"></div>
+          <div class="filter-divider"></div>
+          <div class="filter-label"><span><svg><use href="#i-spark"/></svg>换个角度阅读</span><span class="selection-label" id="selection-label">全部细节</span></div>
+          <div class="category-filters" id="category-filters" role="group" aria-label="按类别筛选"></div>
+          <div class="search-row"><label class="search-field"><svg><use href="#i-search"/></svg><input id="search-input" type="search" placeholder="寻找一个词、一处细节…" aria-label="搜索书中摘录" autocomplete="off"><kbd>/</kbd></label></div>
+          <div class="results-heading"><span><b id="result-count">0</b> 段文字，等待重逢</span><button class="text-button clear-button" id="clear-filters" hidden>清除筛选 <span>×</span></button><span id="results-category" class="results-category">按故事顺序</span></div>
+          <div class="fragment-list" id="fragment-list" aria-label="文字摘录"></div>
+          <div class="analysis-note"><span class="status-dot"></span>本地规则分析 · 可调整人物<button id="analysis-help" class="help-button" aria-label="了解分析方式" title="按词语和人物名称匹配提取，可能存在遗漏。可调整人物名称；书籍仅在当前浏览器内处理。">?</button><span id="visible-count"></span></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="timeline-panel" aria-labelledby="timeline-heading">
+      <div class="timeline-top"><div><h2 id="timeline-heading"><span class="section-index">03</span>故事的脉络</h2><span class="timeline-subtitle">每一段文字，都有它的来处。</span></div><div class="timeline-legend"><span><i class="legend-appearance"></i>外貌</span><span><i class="legend-voice"></i>声音</span><span><i class="legend-setting"></i>场景</span><label><select id="chapter-select" aria-label="选择章节"><option value="all">全部章节</option></select></label></div></div>
+      <div class="timeline-scroll"><div id="chapter-timeline" class="chapter-timeline" aria-label="章节时间轴"></div></div>
+      <div class="timeline-bottom"><span>点击章节，沿着故事继续探索</span><button class="text-button" id="reset-chapter" hidden>回到全部章节 ↗</button><span class="timeline-end">END OF ONE PAGE. START OF ANOTHER.</span></div>
+    </section>
+    <footer><a href="./" class="footer-brand">书间<span>FOLIO</span></a><span>让阅读，多一种可能。</span><span class="privacy"><i></i>书籍仅在浏览器内处理，不上传服务器</span></footer>
+  </main>
+
+  <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-content"><button class="dialog-close round-button" data-close="source-dialog" aria-label="关闭原文窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">BACK TO THE STORY</span><h2 id="source-title">阅读原文</h2><p class="source-meta" id="source-meta"></p><div class="source-copy" id="source-copy" role="region" aria-label="当前页完整原文" tabindex="0"></div></div></dialog>
+  <dialog id="upload-dialog" aria-labelledby="upload-title"><div class="dialog-content"><button class="dialog-close round-button" data-close="upload-dialog" aria-label="关闭上传窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">A NEW STORY BEGINS</span><h2 id="upload-title">下一本，会是什么故事？</h2><p class="dialog-description">带一本喜欢的书来，让它在书间展开。</p><label class="drop-zone" id="drop-zone"><input id="book-file" type="file" accept=".txt,.epub,.pdf,text/plain,application/epub+zip,application/pdf"><span class="upload-circle"><svg><use href="#i-upload"/></svg></span><strong>点击选择，或把书拖到这里</strong><span>TXT、EPUB 或文字版 PDF · 最大 25 MB</span></label><div class="upload-progress" id="upload-progress" hidden><span class="spinner"></span><span id="upload-progress-label">正在打开书籍…</span></div><p class="upload-error" id="upload-error" role="alert" hidden></p><div class="upload-privacy"><span>◈</span><p>只属于你的阅读空间<br><small>文件在本地解析，关闭页面后即清除。扫描版 PDF 暂不支持。</small></p></div></div></dialog>
+  <dialog id="people-dialog" aria-labelledby="people-title"><form id="people-form" class="dialog-content"><button type="button" class="dialog-close round-button" data-close="people-dialog" aria-label="关闭人物窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">FOLLOW THE CHARACTERS</span><h2 id="people-title">故事里，有哪些人？</h2><p class="dialog-description">可以修改识别到的人物，也可以补上被遗漏的名字。<br>使用逗号或换行分隔，最多 30 位。</p><label class="field-label" for="people-input">人物名称</label><textarea id="people-input" rows="7" placeholder="例如：宝玉，黛玉，宝钗" maxlength="2000"></textarea><p class="form-note">留空时，重新自动识别人名。名称用于本地文字匹配。</p><p class="upload-error" id="people-error" role="alert" hidden></p><button type="submit" class="button button-dark modal-submit">重新探索<svg><use href="#i-arrow"/></svg></button></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+data/
+work/
+outputs/
+*.log
+
+config.local.json
+*.local.json
+
