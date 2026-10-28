@@ -7,6 +7,7 @@ import {ApiError,validatePlant,duplicate,openStore,MAX_COLLECTION_BYTES} from '.
 import {cacheImage,imageType} from './lib/plants-network.mjs';
 import {searchPlantSources} from './lib/plant-search.mjs';
 import {openObsidianStore} from './lib/obsidian-store.mjs';
+import {openReadingLibrary} from './lib/reading-library.mjs';
 const project=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(project,'dist');
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.wasm':'application/wasm','.bcmap':'application/octet-stream','.pfb':'application/octet-stream','.ttf':'font/ttf','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
@@ -17,8 +18,9 @@ async function body(req,max=2*1024*1024){
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>max)throw new ApiError(413,message);chunks.push(chunk);}
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new ApiError(400,'JSON 格式无效');}
 }
-export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志'}={}){
+export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志',readingBookPath}={}){
   dataDir=path.resolve(dataDir);const store=obsidianVault?await openObsidianStore({vault:obsidianVault,folder:obsidianFolder,dataDir,staticDir:root}):await openStore(dataDir);
+  const library=await openReadingLibrary({bookPath:readingBookPath,dataDir});
   let seeds=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
   const server=http.createServer(async(req,res)=>{
     try{
@@ -28,6 +30,13 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)throw new ApiError(403,'不允许跨站访问本机资料');
       const url=new URL(req.url,`http://${req.headers.host}`);const method=req.method;
       if(url.pathname==='/api/health'&&method==='GET')return json(res,200,{app:'folio-plants',ok:true});
+      if(url.pathname==='/api/library'&&method==='GET')return json(res,200,library.list());
+      const libraryFile=url.pathname.match(/^\/api\/library\/([a-f0-9]{40})\/file$/);
+      if(libraryFile&&(method==='GET'||method==='HEAD')){
+        const bytes=await library.file(libraryFile[1]);res.writeHead(200,{'Content-Type':'application/epub+zip','Content-Length':bytes.length,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});return res.end(method==='HEAD'?undefined:bytes);
+      }
+      if(url.pathname==='/api/reading-state'&&method==='GET')return json(res,200,{state:await library.getState(url.searchParams.get('bookId'))});
+      if(url.pathname==='/api/reading-state'&&method==='PUT')return json(res,200,{state:await library.putState(await body(req,16*1024))});
       if(url.pathname==='/api/storage'&&method==='GET')return json(res,200,store.info??{type:'json',folderPath:dataDir});
       if(url.pathname==='/api/plants'&&method==='GET')return json(res,200,{plants:await store.list()});
       if(url.pathname==='/api/backup'&&method==='GET'){

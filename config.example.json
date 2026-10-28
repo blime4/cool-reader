@@ -1,1 +1,5 @@
-{"obsidianVault":"C:/path/to/your/vault","obsidianFolder":"FOLIO植物志"}
+{
+  "obsidianVault": "C:/path/to/your/vault",
+  "obsidianFolder": "FOLIO植物志",
+  "readingBookPath": "C:/path/to/your/book.epub"
+}

@@ -1,5 +1,6 @@
 import { CATEGORIES, analyzeBook, makeDemoBook, filterFragments } from './engine.mjs';
 import { readBookFile } from './importers.mjs';
+import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
 const categories = CATEGORIES.filter(item => item.id !== 'all');
@@ -14,6 +15,8 @@ let toastTimer;
 let flipTimer;
 let loading = false;
 let lastDialogTrigger;
+let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
+let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -69,7 +72,9 @@ function clearFilters() {
   renderFloating();
 }
 
-function setBook(book, demo = false) {
+function setBook(book, demo = false, bookId = '') {
+  libraryBookId = bookId;
+  returnQuote = '';
   state.book = book;
   state.demo = demo;
   state.pageIndex = 0;
@@ -93,7 +98,8 @@ function renderBookInfo() {
   $('demo-badge').hidden = !state.demo;
   $('book-meta').textContent = `${state.demo ? '书间原创短篇' : '我的私人藏书'} · ${number(book.totalChars)} 字 · ${state.demo ? '一封信，三个人，一座海边小城' : '本地解析，安心探索'}`;
   $('stat-chapters').textContent = number(book.chapters.length);
-  $('stat-people').textContent = number(book.people.length);
+  $('stat-people').textContent = number(libraryBookId ? new Set(natureIndex.flatMap(entry=>entry.matches.map(item=>item.name))).size : book.people.length);
+  $('stat-people').nextElementSibling.textContent = libraryBookId ? '种线索' : '位人物';
   $('stat-fragments').textContent = number(book.fragments.length);
   document.title = `${book.title} — 书间 FOLIO`;
 }
@@ -123,7 +129,7 @@ function renderBook() {
   let midpoint = Math.ceil(text.length / 2);
   const nearbyBreak = text.indexOf('\n', Math.max(0, midpoint - 50));
   if (nearbyBreak >= 0 && nearbyBreak < midpoint + 70) midpoint = nearbyBreak + 1;
-  const selectedText = state.selected?.pageId === page.id ? state.selected.text : '';
+  const selectedText = state.selected?.pageId === page.id ? state.selected.text : (returnQuote && text.includes(returnQuote) ? returnQuote : '');
   const selectedStart = selectedText ? text.indexOf(selectedText) : -1;
   if (selectedStart >= 0 && selectedStart < midpoint && selectedStart + selectedText.length > midpoint) {
     midpoint = selectedStart + selectedText.length;
@@ -131,7 +137,7 @@ function renderBook() {
   setHighlightedText($('page-left'), text.slice(0, midpoint), selectedText);
   setHighlightedText($('page-right'), text.slice(midpoint), selectedText);
   $('source-title').textContent = chapter?.title ?? '阅读原文';
-  $('source-meta').textContent = `${state.book.title} · 第 ${number(state.pageIndex + 1)} / ${number(state.book.pages.length)} 页`;
+  $('source-meta').textContent = `${state.book.title} · 重排第 ${number(state.pageIndex + 1)} / ${number(state.book.pages.length)} 页`;
   setHighlightedText($('source-copy'), text, selectedText);
   $('page-running-title').textContent = state.book.title;
   $('page-chapter-title').textContent = chapter?.title ?? '';
@@ -143,6 +149,8 @@ function renderBook() {
   $('page-total').textContent = number(state.book.pages.length);
   $('prev-page').disabled = state.pageIndex === 0;
   $('next-page').disabled = state.pageIndex >= state.book.pages.length - 1;
+  renderNature();
+  persistReading();
   for (const card of $('fragment-list').querySelectorAll('.fragment-card')) {
     const selected = card.dataset.fragmentId === state.selected?.id;
     card.classList.toggle('is-selected', selected);
@@ -189,14 +197,27 @@ function toggleBook() {
 function renderPeople() {
   const container = $('people-filters');
   container.replaceChildren();
-  const people = [{ name: 'all', label: '全部人物', count: state.book.fragments.length }, ...state.book.people.map(person => ({ ...person, label: person.name }))];
+  const natureMode = Boolean(libraryBookId);
+  $('people-caption').textContent = natureMode ? '跟随自然线索' : '跟随人物';
+  container.setAttribute('aria-label',natureMode ? '按自然词语筛选' : '按人物筛选');
+  $('analysis-caption').textContent = natureMode ? '本地词语匹配 · 物种需核对' : '本地规则分析 · 可调整人物';
+  $('analysis-help').title = natureMode ? '按本书实际出现的名称查找文字线索，不代表自动确认物种身份。' : '按词语和人物名称匹配提取，可能存在遗漏，可调整人物名称。';
+  $('manage-people').hidden = natureMode;
+  const counts = new Map();
+  if (natureMode) {
+    if (natureIndexedBook !== state.book) renderNature();
+    for (const entry of natureIndex) for (const match of entry.matches) counts.set(match.name,(counts.get(match.name) || 0) + match.count);
+  }
+  const people = [{ name: 'all', label: natureMode ? '全部线索' : '全部人物', count: state.book.fragments.length }, ...(natureMode ? [...counts].sort((a,b)=>b[1]-a[1]).slice(0,30).map(([name,count])=>({name,label:name,count})) : state.book.people.map(person => ({ ...person, label: person.name })))];
   for (const person of people) {
-    const button = element('button', `person-chip${state.person === person.name ? ' is-active' : ''}`);
+    const active = natureMode ? (person.name === 'all' ? !state.query : state.query === person.name) : state.person === person.name;
+    const button = element('button', `person-chip${active ? ' is-active' : ''}`);
     button.type = 'button';
-    button.setAttribute('aria-pressed', String(state.person === person.name));
+    button.setAttribute('aria-pressed', String(active));
     button.append(document.createTextNode(person.label), element('small', '', number(person.count)));
     button.addEventListener('click', () => {
-      state.person = person.name;
+      state.person = natureMode ? 'all' : person.name;
+      if (natureMode) { state.query = person.name === 'all' ? '' : person.name; $('search-input').value = state.query; }
       state.visibleLimit = 80;
       renderExplorer();
       renderFloating();
@@ -261,7 +282,8 @@ function renderFragments() {
     label.append(element('i'), document.createTextNode(category.label));
     const quote = element('blockquote', '', fragment.text);
     const footer = element('span', 'card-footer');
-    if (fragment.people.length) footer.append(element('span', 'card-person', fragment.people.join(' · ')), document.createTextNode(' / '));
+    const fragmentNames = libraryBookId ? natureMatches(fragment.text,natureNames).map(item=>item.name) : fragment.people;
+    if (fragmentNames.length) footer.append(element('span', 'card-person', fragmentNames.join(' · ')), document.createTextNode(' / '));
     const chapter = chapters.get(fragment.chapterId);
     const source = element('span', 'card-chapter', chapter?.title ?? '原文');
     footer.append(source, icon('arrow'));
@@ -305,7 +327,8 @@ function renderFloating() {
     button.disabled = state.closed;
     const displayCategory = state.category !== 'all' && (fragment.categories ?? [fragment.category]).includes(state.category) ? state.category : fragment.category;
     const category = categoryMap.get(displayCategory)?.label ?? '摘录';
-    button.append(element('span', '', `${fragment.people[0] ?? '故事'} / ${category}`), document.createTextNode(fragment.text.length > 32 ? `${fragment.text.slice(0, 32)}…` : fragment.text));
+    const subject = libraryBookId ? natureMatches(fragment.text,natureNames)[0]?.name ?? '自然' : fragment.people[0] ?? '故事';
+    button.append(element('span', '', `${subject} / ${category}`), document.createTextNode(fragment.text.length > 32 ? `${fragment.text.slice(0, 32)}…` : fragment.text));
     button.title = `回到原文：${fragment.text}`;
     button.addEventListener('click', () => selectFragment(fragment));
     $('floating-fragments').append(button);
@@ -379,6 +402,109 @@ function renderTimeline() {
   }
   $('chapter-select').value = state.chapter;
   $('reset-chapter').hidden = state.chapter === 'all';
+  renderNature();
+}
+
+function pageContext(quote = '') {
+  const page = currentPage();
+  return readingContext({bookId:libraryBookId,pageId:page?.id,chapterId:page?.chapterId,sourceBook:state.book.title,chapter:chapterById(page?.chapterId)?.title,page:`重排第 ${state.pageIndex + 1} 页`,quote});
+}
+
+function persistReading() {
+  clearTimeout(progressTimer);
+  if (!libraryBookId || restoringReading) return;
+  const payload = pageContext();
+  progressTimer = setTimeout(async () => {
+    try {
+      const response = await fetch('/api/reading-state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({bookId:payload.bookId,pageId:payload.pageId,chapterId:payload.chapterId})});
+      if (!response.ok) throw new Error();
+    } catch { toast('阅读位置暂未保存，请确认本机服务仍在运行。'); }
+  },350);
+}
+
+function renderNature() {
+  if (!currentPage()) return;
+  if (natureIndexedBook !== state.book) {
+    natureIndex = state.book.pages.map((page,index)=>({page,index,matches:natureMatches(page.text,natureNames)}));
+    natureIndexedBook = state.book;
+  }
+  const matches = natureIndex[state.pageIndex]?.matches ?? [];
+  $('nature-hint').textContent = matches.length ? `${matches.length} 个词语线索，需确认 · 点击携带这一页的原文去查找` : '这一页暂未找到词语线索。可以选取原文，记录一次自己的发现。';
+  $('nature-clues').replaceChildren();
+  for (const match of matches.slice(0,16)) {
+    const button = element('button','',`${match.name} · ${match.count}`);
+    button.title = '原文中出现的名称线索，尚未确认物种身份';
+    button.addEventListener('click',()=>{ location.href = collectionLink(match.name,pageContext(match.quote)); });
+    $('nature-clues').append(button);
+  }
+  const names = new Set(collectedSpecies.map(item=>item.name));
+  const trail = [];
+  for (const entry of natureIndex) {
+    if (state.chapter !== 'all' && entry.page.chapterId !== state.chapter) continue;
+    for (const match of entry.matches) if (names.has(match.name)) trail.push({...match,page:entry.page,index:entry.index});
+  }
+  $('trail-count').textContent = trail.reduce((sum,item)=>sum+item.count,0);
+  $('nature-trail-list').replaceChildren();
+  $('nature-trail-list').append(element('p','','已收藏物种名称在本书中的字面匹配 · 词语线索，需确认。'));
+  if (!trail.length) $('nature-trail-list').append(element('p','','暂未匹配到已收藏的物种名称。可以先从这一页记录一次自然遇见。'));
+  for (const item of trail.slice(0,80)) {
+    const button = element('button','',`${item.name} · 重排第 ${item.index+1} 页 · ${item.count} 次`);
+    button.addEventListener('click',()=>{ state.selected = null; returnQuote = item.quote; goToPage(item.index); });
+    $('nature-trail-list').append(button);
+  }
+  if (trail.length > 80) $('nature-trail-list').append(element('p','',`共 ${trail.length} 处匹配位置，先显示前 80 处；可在章节时间轴中缩小范围。`));
+}
+
+function captureEncounter() {
+  const selection = window.getSelection();
+  const anchor = selection?.anchorNode?.parentElement;
+  const text = currentPage()?.text ?? '';
+  const selectedValue = anchor?.closest('#source-copy,.leaf-copy') ? selection.toString() : '';
+  const selected = selectedValue && text.includes(selectedValue) ? selectedValue : '';
+  encounterQuote = (selected || (state.selected?.pageId === currentPage()?.id ? state.selected.text : currentPage()?.text ?? '')).slice(0,1000);
+  if ($('source-dialog').open) closeDialog('source-dialog');
+  $('encounter-name').value = selectedSpeciesName(selected || (state.selected?.text ?? ''));
+  $('encounter-quote').textContent = encounterQuote;
+  openDialog('encounter-dialog',$('capture-encounter'));
+  $('encounter-name').focus();
+}
+
+async function initializeLibrary() {
+  const uploadAtStart = uploadVersion;
+  const requestContext = contextFromSearch(location.search);
+  try {
+    const [libraryResponse,collectionResponse,seedsResponse] = await Promise.all([fetch('/api/library'),fetch('/api/plants'),fetch('/plants-seed.json')]);
+    if (collectionResponse.ok) { const data = await collectionResponse.json(); collectedSpecies = Array.isArray(data.plants) ? data.plants : []; }
+    const seeds = seedsResponse.ok ? await seedsResponse.json() : [];
+    natureNames = [...new Set([...NATURE_WORDS,...collectedSpecies.map(item=>item.name),...(Array.isArray(seeds) ? seeds.map(item=>item.name) : [])])];
+    natureIndexedBook = null;
+    renderNature();
+    if (!libraryResponse.ok) return;
+    const library = await libraryResponse.json();
+    const books = Array.isArray(library.books) ? library.books : [];
+    const book = requestContext.bookId ? books.find(item=>item.id === requestContext.bookId) : books[0];
+    if (!book) { if (requestContext.bookId) toast('这本书暂未配置在本机，已打开示例。'); return; }
+    if (!/^[a-f0-9]{40}$/i.test(book.id) || book.url !== `/api/library/${book.id}/file`) throw new Error('本机书库地址格式不正确。');
+    $('library-notice').hidden = false; $('library-notice').textContent = `正在翻开本机书库《${book.title}》…`;
+    const [fileResponse,progressResponse] = await Promise.all([fetch(book.url),fetch(`/api/reading-state?bookId=${encodeURIComponent(book.id)}`)]);
+    if (!fileResponse.ok) throw new Error('本机书籍暂时无法读取，请检查书库配置。');
+    const bytes = await fileResponse.arrayBuffer();
+    const parsed = await readBookFile(new File([bytes],`${book.title}.epub`,{type:'application/epub+zip'}),message=>{ $('library-notice').textContent = message; });
+    if (uploadAtStart !== uploadVersion) { $('library-notice').hidden = true; return; }
+    const progress = progressResponse.ok ? (await progressResponse.json()).state : null;
+    restoringReading = true;
+    setBook(analyzeBook(parsed,[]),false,book.id);
+    const targetId = requestContext.pageId || progress?.pageId;
+    let index = state.book.pages.findIndex(page=>page.id === targetId);
+    if (!targetId) index = state.book.pages.findIndex(page=>/^1月1日|^一月一日/.test(chapterById(page.chapterId)?.title || ''));
+    returnQuote = requestContext.quote;
+    if (index >= 0) goToPage(index,false); else renderBook();
+    restoringReading = false; persistReading();
+    $('library-notice').textContent = `本机书库 · ${state.book.title} · 自动保存重排阅读位置`;
+  } catch (error) {
+    restoringReading = false;
+    $('library-notice').hidden = false; $('library-notice').textContent = `${error.message || '本机书库暂不可用。'} 可继续使用上传书籍或示例。`;
+  }
 }
 
 async function importBook(file) {
@@ -483,6 +609,9 @@ $('sample-button').addEventListener('click', () => {
 $('prev-page').addEventListener('click', () => { state.selected = null; goToPage(state.pageIndex - 1); });
 $('next-page').addEventListener('click', () => { state.selected = null; goToPage(state.pageIndex + 1); });
 $('toggle-book').addEventListener('click', toggleBook);
+$('capture-encounter').addEventListener('click',captureEncounter);
+$('capture-source').addEventListener('click',captureEncounter);
+$('encounter-form').addEventListener('submit',event=>{ event.preventDefault(); const name = $('encounter-name').value.trim(); if (name) location.href = collectionLink(name,pageContext(encounterQuote)); });
 $('read-source').addEventListener('click', () => {
   openDialog('source-dialog', $('read-source'));
   setHighlightedText($('source-copy'), currentPage()?.text ?? '', state.selected?.pageId === currentPage()?.id ? state.selected.text : '');
@@ -511,8 +640,11 @@ $('people-form').addEventListener('submit', event => {
     return;
   }
   try {
+    const previousPageId = currentPage()?.id;
     const book = analyzeBook({ title: state.book.title, chapters: state.book.chapters.map(({ title, text }) => ({ title, text })) }, names);
-    setBook(book, state.demo);
+    setBook(book, state.demo, libraryBookId);
+    const previousIndex = state.book.pages.findIndex(page=>page.id === previousPageId);
+    if (previousIndex >= 0) goToPage(previousIndex,false);
     closeDialog('people-dialog');
     toast(`人物已更新，发现 ${number(book.people.length)} 位人物`);
   } catch (error) {
@@ -520,7 +652,7 @@ $('people-form').addEventListener('submit', event => {
     $('people-error').hidden = false;
   }
 });
-$('analysis-help').addEventListener('click', () => toast('按词语和人物名在本地匹配，可能存在遗漏；可用“调整人物”补充名称。'));
+$('analysis-help').addEventListener('click', () => toast(libraryBookId ? '自然线索只按本书字面出现的名称匹配，不代表自动确认物种身份。' : '按词语和人物名在本地匹配，可能存在遗漏；可用“调整人物”补充名称。'));
 $('export-button').addEventListener('click', () => {
   const fragments = filterFragments(state.book, state);
   const payload = { title: state.book.title, exportedAt: new Date().toISOString(), analysis: '本地词语与人物名称匹配', filters: { person: state.person, category: state.category, chapter: state.chapter, query: state.query }, fragments: fragments.map(fragment => ({ ...fragment, chapter: chapterById(fragment.chapterId)?.title ?? '' })) };
@@ -554,3 +686,4 @@ renderBook();
 renderFloating();
 populateChapterSelect();
 renderTimeline();
+initializeLibrary();

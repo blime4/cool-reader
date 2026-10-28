@@ -27,7 +27,7 @@
     <div class="header-actions"><span class="local-note"><i></i>一本书，一个小宇宙</span><button class="button button-dark upload-trigger"><svg><use href="#i-upload"/></svg>上传书籍</button></div>
   </header>
 
-  <main id="workspace">
+  <main id="workspace"><div class="library-notice" id="library-notice" role="status" hidden></div>
     <section class="intro" aria-labelledby="intro-title">
       <div><div class="eyebrow"><span class="tiny-line"></span>A DIFFERENT WAY TO READ</div><h1 id="intro-title">让文字，<em>跃然纸上。</em><span class="title-star" aria-hidden="true">✳</span></h1><p>翻开一本书，拾起人物、细节与故事的回声。</p></div>
       <div class="intro-aside"><span>READ BETWEEN<br>THE LINES.</span><div class="intro-seal" aria-hidden="true"><svg><use href="#i-book"/></svg></div></div>
@@ -60,14 +60,14 @@
           <div class="floating-fragments" id="floating-fragments" aria-label="书中片段"></div>
           <div class="stage-bottom"><span class="stage-caption">字里行间，自有天地。</span><span class="stage-hint"><svg><use href="#i-spark"/></svg>点击纸条，回到故事现场</span></div>
         </div>
-        <div class="reader-controls"><div class="chapter-reading"><span class="reading-dot"></span><span id="reading-chapter">正在阅读</span></div><div class="page-controls"><button class="round-button" id="prev-page" aria-label="上一页">←</button><span><b id="page-number">1</b><i>/</i><span id="page-total">1</span></span><button class="round-button" id="next-page" aria-label="下一页">→</button></div></div>
-        <div class="reader-footnote"><span>每一个细节，都值得被看见</span><span>SCROLL THROUGH THE STORY ↗</span></div>
+        <div class="reader-controls"><div class="chapter-reading"><span class="reading-dot"></span><span id="reading-chapter">正在阅读</span></div><div class="page-controls"><small class="reflow-label">重排页</small><button class="round-button" id="prev-page" aria-label="上一页">←</button><span><b id="page-number">1</b><i>/</i><span id="page-total">1</span></span><button class="round-button" id="next-page" aria-label="下一页">→</button></div></div>
+        <div class="nature-panel"><div class="nature-panel-heading"><strong>这一页的自然</strong><button class="text-button" id="capture-encounter">收藏这段遇见 ↗</button></div><p id="nature-hint">词语线索，需确认</p><div id="nature-clues" class="nature-clues"></div><details class="nature-trail"><summary>自然足迹 · <span id="trail-count">0</span> 处文字相遇</summary><div id="nature-trail-list"></div></details></div><div class="reader-footnote"><span>每一个细节，都值得被看见</span><span>SCROLL THROUGH THE STORY ↗</span></div>
       </section>
 
       <section class="explorer-panel" aria-labelledby="explorer-heading">
         <div class="panel-heading"><h2 id="explorer-heading"><span class="section-index">02</span>拾取字里行间</h2><span class="small-label">THE STORY ATLAS</span></div>
         <div class="explorer-box">
-          <div class="filter-label"><span><svg><use href="#i-user"/></svg>跟随人物</span><button class="text-button" id="manage-people"><svg><use href="#i-sliders"/></svg>调整人物</button></div>
+          <div class="filter-label"><span><svg><use href="#i-user"/></svg><span id="people-caption">跟随人物</span></span><button class="text-button" id="manage-people"><svg><use href="#i-sliders"/></svg>调整人物</button></div>
           <div class="people-filters" id="people-filters" role="group" aria-label="按人物筛选"></div>
           <div class="filter-divider"></div>
           <div class="filter-label"><span><svg><use href="#i-spark"/></svg>换个角度阅读</span><span class="selection-label" id="selection-label">全部细节</span></div>
@@ -75,7 +75,7 @@
           <div class="search-row"><label class="search-field"><svg><use href="#i-search"/></svg><input id="search-input" type="search" placeholder="寻找一个词、一处细节…" aria-label="搜索书中摘录" autocomplete="off"><kbd>/</kbd></label></div>
           <div class="results-heading"><span><b id="result-count">0</b> 段文字，等待重逢</span><button class="text-button clear-button" id="clear-filters" hidden>清除筛选 <span>×</span></button><span id="results-category" class="results-category">按故事顺序</span></div>
           <div class="fragment-list" id="fragment-list" aria-label="文字摘录"></div>
-          <div class="analysis-note"><span class="status-dot"></span>本地规则分析 · 可调整人物<button id="analysis-help" class="help-button" aria-label="了解分析方式" title="按词语和人物名称匹配提取，可能存在遗漏。可调整人物名称；书籍仅在当前浏览器内处理。">?</button><span id="visible-count"></span></div>
+          <div class="analysis-note"><span class="status-dot"></span><span id="analysis-caption">本地规则分析 · 可调整人物</span><button id="analysis-help" class="help-button" aria-label="了解分析方式" title="按词语和人物名称匹配提取，可能存在遗漏。可调整人物名称；书籍仅在当前浏览器内处理。">?</button><span id="visible-count"></span></div>
         </div>
       </section>
     </div>
@@ -88,7 +88,8 @@
     <footer><a href="./" class="footer-brand">书间<span>FOLIO</span></a><span>让阅读，多一种可能。</span><span class="privacy"><i></i>书籍仅在浏览器内处理，不上传服务器</span></footer>
   </main>
 
-  <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-content"><button class="dialog-close round-button" data-close="source-dialog" aria-label="关闭原文窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">BACK TO THE STORY</span><h2 id="source-title">阅读原文</h2><p class="source-meta" id="source-meta"></p><div class="source-copy" id="source-copy" role="region" aria-label="当前页完整原文" tabindex="0"></div></div></dialog>
+  <dialog id="encounter-dialog" aria-labelledby="encounter-title"><form class="dialog-content" id="encounter-form"><button type="button" class="dialog-close round-button" data-close="encounter-dialog" aria-label="关闭遇见窗口">×</button><span class="eyebrow">A FIELD NOTE FROM THIS PAGE</span><h2 id="encounter-title">记住这段遇见</h2><p class="dialog-description">先选取一段原文，再确认其中的物种名称。查询只使用名称，原文留在本机。</p><label class="field-label" for="encounter-name">物种名称 · 请核对</label><input id="encounter-name" class="encounter-name" required maxlength="120" placeholder="例如：松鼠、苔藓"><blockquote id="encounter-quote"></blockquote><button class="button button-dark modal-submit" type="submit">去万物收藏查找 ↗</button></form></dialog>
+  <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-content"><button class="dialog-close round-button" data-close="source-dialog" aria-label="关闭原文窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">BACK TO THE STORY</span><h2 id="source-title">阅读原文</h2><p class="source-meta" id="source-meta"></p><button class="text-button" id="capture-source">选中文字，收藏这段遇见 ↗</button><div class="source-copy" id="source-copy" role="region" aria-label="当前页完整原文" tabindex="0"></div></div></dialog>
   <dialog id="upload-dialog" aria-labelledby="upload-title"><div class="dialog-content"><button class="dialog-close round-button" data-close="upload-dialog" aria-label="关闭上传窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">A NEW STORY BEGINS</span><h2 id="upload-title">下一本，会是什么故事？</h2><p class="dialog-description">带一本喜欢的书来，让它在书间展开。</p><label class="drop-zone" id="drop-zone"><input id="book-file" type="file" accept=".txt,.epub,.pdf,text/plain,application/epub+zip,application/pdf"><span class="upload-circle"><svg><use href="#i-upload"/></svg></span><strong>点击选择，或把书拖到这里</strong><span>TXT、EPUB 或文字版 PDF · 最大 25 MB</span></label><div class="upload-progress" id="upload-progress" hidden><span class="spinner"></span><span id="upload-progress-label">正在打开书籍…</span></div><p class="upload-error" id="upload-error" role="alert" hidden></p><div class="upload-privacy"><span>◈</span><p>只属于你的阅读空间<br><small>文件在本地解析，关闭页面后即清除。扫描版 PDF 暂不支持。</small></p></div></div></dialog>
   <dialog id="people-dialog" aria-labelledby="people-title"><form id="people-form" class="dialog-content"><button type="button" class="dialog-close round-button" data-close="people-dialog" aria-label="关闭人物窗口"><svg><use href="#i-close"/></svg></button><span class="eyebrow">FOLLOW THE CHARACTERS</span><h2 id="people-title">故事里，有哪些人？</h2><p class="dialog-description">可以修改识别到的人物，也可以补上被遗漏的名字。<br>使用逗号或换行分隔，最多 30 位。</p><label class="field-label" for="people-input">人物名称</label><textarea id="people-input" rows="7" placeholder="例如：宝玉，黛玉，宝钗" maxlength="2000"></textarea><p class="form-note">留空时，重新自动识别人名。名称用于本地文字匹配。</p><p class="upload-error" id="people-error" role="alert" hidden></p><button type="submit" class="button button-dark modal-submit">重新探索<svg><use href="#i-arrow"/></svg></button></form></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

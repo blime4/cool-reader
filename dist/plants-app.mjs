@@ -1,4 +1,6 @@
+import {contextFromSearch,readingContext,readerLink,applyReadingToCard} from './reading-links.mjs';
 const $ = id => document.getElementById(id);
+let incomingReading = contextFromSearch(location.search);
 const statuses = ['全部收藏', '想了解', '已认识', '待观察'];
 const kindLabels = { all: '万物', plant: '植物', animal: '动物（含鸟类）', bird: '鸟类', other: '其他' };
 let kindFilter = 'all', lookupKind = 'all';
@@ -77,13 +79,20 @@ async function lookup(name) {
       if (matchNote) info.append(node('p', '', matchNote));
       info.append(node('small', '', '选择这个物种 ↗'));
       card.append(photograph(item, 'candidate-image'), info);
-      card.addEventListener('click', () => { close('search-dialog'); editPlant(item, $('plant-query'), true); });
+      card.addEventListener('click', () => {
+        close('search-dialog');
+        const kingdom = value => ['animal','bird'].includes(savedKind(value)) ? 'animal' : savedKind(value);
+        const existing = plants.find(value=>(item.taxonId && value.taxonId && String(value.taxonId) === String(item.taxonId)) || (item.scientificName && value.scientificName && item.scientificName.toLocaleLowerCase() === value.scientificName.toLocaleLowerCase() && kingdom(item) === kingdom(value)));
+        editPlant(existing || item,$('plant-query'),!existing,true);
+      });
       $('candidate-list').append(card);
     }
   } catch (err) { if (version === lookupVersion && $('search-dialog').open) error('search-error', err.message); }
   finally { if (version === lookupVersion) $('search-loading').hidden = true; }
 }
-function editPlant(plant, trigger, isNew = false) {
+function editPlant(plant, trigger, isNew = false, applyReading = false) {
+  const provenance = applyReading && incomingReading.name && (incomingReading.bookId || incomingReading.sourceBook || incomingReading.quote) ? readingContext(incomingReading) : null;
+  plant = provenance ? applyReadingToCard(plant,provenance,{isNew}) : plant;
   candidate = { ...plant }; editing = isNew ? null : plant.id; error('edit-error');
   $('edit-title').textContent = editing ? '这个物种，与你的故事' : '留住这一次相遇'; $('edit-eyebrow').textContent = editing ? 'YOUR NATURE READING MEMORY' : 'A NEW LEAF IN YOUR COLLECTION';
   $('save-plant').replaceChildren(document.createTextNode(editing ? '保存这页记忆' : '加入我的万物收藏'), node('span', '', editing ? '✓' : '＋')); $('delete-plant').hidden = !editing;
@@ -102,6 +111,8 @@ function editPlant(plant, trigger, isNew = false) {
     const link = node('a', '', `其他物种资料来源 ${index + 1} ↗`);
     link.href = extraUrl; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link);
   }
+  const returnUrl = readerLink(plant);
+  if (returnUrl) { const link = node('a','reading-return','回到书中 · 重排阅读页 ↗'); link.href = returnUrl; details.append(link); }
   $('edit-specimen').append(photo, details); show('edit-dialog', trigger);
 }
 function tagsFromInput() { return [...new Set($('edit-tags').value.split(/[,，;；\n]+/u).map(tag => tag.trim()).filter(Boolean))]; }
@@ -122,7 +133,7 @@ $('search-dialog').addEventListener('close', () => { lookupVersion++; $('search-
 $('lookup-form').addEventListener('submit', event => { event.preventDefault(); lookup($('plant-query').value); });
 $('add-top').addEventListener('click', () => { $('plant-query').focus(); $('plant-query').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' }); });
 for (const button of document.querySelectorAll('[data-suggest]')) button.addEventListener('click', () => lookup(button.dataset.suggest));
-$('manual-create').addEventListener('click', () => { close('search-dialog'); editPlant({ name: searchName, kind: lookupKind === 'all' ? 'plant' : lookupKind, description: '', tags: [] }, $('plant-query'), true); });
+$('manual-create').addEventListener('click', () => { close('search-dialog'); editPlant({ name: searchName, kind: lookupKind === 'all' ? 'plant' : lookupKind, description: '', tags: [] }, $('plant-query'), true,true); });
 $('plant-form').addEventListener('submit', save);
 $('collection-query').addEventListener('input', event => { query = event.target.value; render(); });
 $('clear-search').addEventListener('click', () => { query = ''; filter = statuses[0]; kindFilter = 'all'; $('collection-query').value = ''; render(); });
@@ -137,5 +148,26 @@ async function starterCards() {
   catch { starters = ['银杏','水杉','红豆杉'].map(name => ({ name, scientificName: '从一个名字，开始认识自然', description: '查找物种资料，留住书页里的相遇。' })); }
   for (const starter of starters) { const card = node('button', 'starter-card'); card.type = 'button'; const picture = photograph(starter); picture.append(node('span', 'starter-caption', 'AN INVITATION TO EXPLORE')); const body = node('div', 'card-body'); const title = node('div', 'card-title-line'); title.append(node('h3', '', starter.name), node('span', '', '↗')); body.append(title, node('p', 'scientific-name', starter.scientificName), node('p', 'starter-description', starter.description)); card.append(picture, body); if (starter.imageAttribution) { const credit = node('div', 'image-credit', starter.imageAttribution); credit.title = starter.imageAttribution; card.append(credit); } card.addEventListener('click', () => lookup(starter.name)); $('starter-grid').append(card); }
 }
+async function initializeCollectionReading() {
+  const continueReading = async () => {
+    try {
+      const library = await api('/api/library'); const book = library.books?.[0];
+      if (!book) { $('reading-bridge-label').textContent = '本机书库尚未配置。'; const link = node('a','','打开阅读工作台 ↗'); link.href = '/index.html'; $('reading-bridge').append(link); return; }
+      const progress = await api(`/api/reading-state?bookId=${encodeURIComponent(book.id)}`);
+      $('reading-bridge-label').textContent = progress.state ? '接着上一次的自然之旅' : '从书页里，认识万物';
+      const link = node('a','',`继续阅读《${book.title}》 ↗`); link.href = readerLink({bookId:book.id,pageId:progress.state?.pageId,chapterId:progress.state?.chapterId}); $('reading-bridge').append(link);
+    } catch { $('reading-bridge-label').textContent = '暂时无法读取本机书库，稍后可打开阅读工作台。'; }
+  };
+  await Promise.all([load(),continueReading()]);
+  if (incomingReading.name) {
+    if (incomingReading.sourceBook || incomingReading.quote) {
+      $('reading-origin').hidden = false;
+      $('reading-origin').append(node('strong','',`来自《${incomingReading.sourceBook || '阅读中的书'}》 · ${incomingReading.page || '重排阅读页'}，保存时带入阅读位置`));
+      if (incomingReading.quote) $('reading-origin').append(node('blockquote','',incomingReading.quote));
+      const clear = node('button','','不携带这段阅读来源'); clear.addEventListener('click',()=>{ incomingReading = {...readingContext(),name:''}; $('reading-origin').hidden = true; history.replaceState(null,'',location.pathname); }); $('reading-origin').append(clear);
+    }
+    lookup(incomingReading.name);
+  }
+}
 starterCards();
-render(); load();
+render(); initializeCollectionReading();
