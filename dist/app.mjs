@@ -1,6 +1,8 @@
 import { CATEGORIES, analyzeBook, makeDemoBook, filterFragments } from './engine.mjs';
 import { readBookFile } from './importers.mjs';
 import { createBookMotion } from './book-motion.mjs';
+import {selectBookGuides} from './book-guides.mjs';
+import {createBookGuideView} from './book-guide-view.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -18,13 +20,15 @@ let loading = false;
 let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
+let guideSeeds = [], bookGuideView;
+let guidePage, guideCollection, guideSeedRef, guideNamesRef, currentGuides = [];
 let trailCache;
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 const pageMotion = createBookMotion({
   getLimit:()=>state.book.pages.length,
   reduced:()=>motionPreference.matches || typeof $('turning-leaf').animate !== 'function',
   animate:animatePageTurn,
-  onCommit:index=>{ state.pageIndex = index; renderBook(); disposeTurn(); },
+  onCommit:index=>{ state.pageIndex = index; renderBook(); disposeTurn(); bookGuideView?.suspend(false); },
   onTarget:updatePageButtons,
 });
 motionPreference.addEventListener('change',()=>{ if (motionPreference.matches) pageMotion.settle(); });
@@ -84,8 +88,10 @@ function clearFilters() {
 }
 
 function setBook(book, demo = false, bookId = '') {
+  const wasClosed = state.closed;
   pageMotion.reset(0);
   disposeTurn();
+  bookGuideView?.reset();
   libraryBookId = bookId;
   returnQuote = '';
   state.book = book;
@@ -102,6 +108,7 @@ function setBook(book, demo = false, bookId = '') {
   renderBookInfo();
   renderBook();
   populateChapterSelect();
+  if (wasClosed) bookGuideView?.bookTransition();
 }
 
 function renderBookInfo() {
@@ -131,7 +138,7 @@ function setHighlightedText(node, text, selectedText) {
   node.scrollTop = 0;
   requestAnimationFrame(() => {
     const mark = node.querySelector('mark');
-    if (mark) node.scrollTop = Math.max(0, mark.offsetTop - node.offsetTop - 40);
+    if (mark) node.scrollTop = Math.max(0, mark.offsetTop - 40);
   });
 }
 
@@ -146,7 +153,19 @@ function pageParts(index) {
   if (selectedStart >= 0 && selectedStart < midpoint && selectedStart + selectedText.length > midpoint) {
     midpoint = selectedStart + selectedText.length;
   }
+  for (const guide of guidesForPage(index)) {
+    for (const range of guide.ranges ?? [{start:guide.offset,end:guide.offset+guide.length}]) if (range.start < midpoint && range.end > midpoint) midpoint = range.end;
+  }
   return {left:text.slice(0,midpoint),right:text.slice(midpoint),selectedText};
+}
+
+function guidesForPage(index) {
+  const page = state.book.pages[index];
+  if (guidePage !== page || guideCollection !== collectedSpecies || guideSeedRef !== guideSeeds || guideNamesRef !== natureNames) {
+    currentGuides = selectBookGuides(page.text,collectedSpecies,guideSeeds,{limit:2,names:natureNames});
+    guidePage = page; guideCollection = collectedSpecies; guideSeedRef = guideSeeds; guideNamesRef = natureNames;
+  }
+  return currentGuides;
 }
 
 function renderBook() {
@@ -157,6 +176,7 @@ function renderBook() {
   const {left,right,selectedText} = pageParts(state.pageIndex);
   setHighlightedText($('page-left'), left, selectedText);
   setHighlightedText($('page-right'), right, selectedText);
+  bookGuideView?.render({guides:guidesForPage(state.pageIndex),parts:[{text:left,selectedText,offset:0},{text:right,selectedText,offset:left.length}],key:page,autoLocate:!selectedText && !window.getSelection()?.toString()});
   $('source-title').textContent = chapter?.title ?? '阅读原文';
   $('source-meta').textContent = `${state.book.title} · 重排第 ${number(state.pageIndex + 1)} / ${number(state.book.pages.length)} 页`;
   if ($('source-dialog').open) setHighlightedText($('source-copy'), text, selectedText);
@@ -193,6 +213,7 @@ function updatePageButtons() {
 }
 
 function animatePageTurn(from,to) {
+  bookGuideView?.suspend(true);
   const forward = to > from;
   const sheet = $('turning-leaf'), underlay = $('turn-underlay'), shade = $('turn-shadow');
   const oldSide = forward ? 'right' : 'left', newSide = forward ? 'left' : 'right';
@@ -238,6 +259,7 @@ function animatePageTurn(from,to) {
     animation.cancel(); shadow.cancel();
     sheet.replaceChildren(); underlay.replaceChildren();
     $('physical-book').classList.remove('is-turning');
+    bookGuideView?.schedule();
   };
   disposeTurn = cleanup;
   return {finished:Promise.all([animation.finished,shadow.finished]),cancel:cleanup};
@@ -259,6 +281,7 @@ function toggleBook() {
   document.querySelector('.book-spread').setAttribute('aria-hidden', String(state.closed));
   for (const leaf of document.querySelectorAll('.leaf-copy')) leaf.tabIndex = state.closed ? -1 : 0;
   for (const button of $('floating-fragments').querySelectorAll('button')) button.disabled = state.closed;
+  bookGuideView?.bookTransition();
 }
 
 function renderPeople() {
@@ -545,9 +568,11 @@ async function initializeLibrary() {
     const [libraryResponse,collectionResponse,seedsResponse] = await Promise.all([fetch('/api/library'),fetch('/api/plants'),fetch('/plants-seed.json')]);
     if (collectionResponse.ok) { const data = await collectionResponse.json(); collectedSpecies = Array.isArray(data.plants) ? data.plants : []; }
     const seeds = seedsResponse.ok ? await seedsResponse.json() : [];
+    guideSeeds = Array.isArray(seeds) ? seeds : [];
     natureNames = [...new Set([...NATURE_WORDS,...collectedSpecies.map(item=>item.name),...(Array.isArray(seeds) ? seeds.map(item=>item.name) : [])])];
     natureIndexedBook = null;
     renderNature();
+    renderBook();
     if (!libraryResponse.ok) return;
     const library = await libraryResponse.json();
     const books = Array.isArray(library.books) ? library.books : [];
@@ -749,6 +774,7 @@ for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).
   leaf.setAttribute('aria-label', `书籍${index === 0 ? '左' : '右'}页正文，可滚动阅读`);
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
+bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),onLookup:guide=>{ location.href = collectionLink(guide.name,pageContext(guide.quote)); }});
 renderBookInfo();
 renderExplorer();
 renderBook();

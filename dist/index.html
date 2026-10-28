@@ -42,7 +42,7 @@
     <div class="workspace-grid">
       <section class="reader-panel" aria-labelledby="reader-heading">
         <div class="panel-heading"><h2 id="reader-heading"><span class="section-index">01</span>故事，在此展开</h2><div class="reader-heading-actions"><button class="text-button" id="read-source">阅读原文 ↗</button><button class="text-button" id="toggle-book"><svg><use href="#i-book"/></svg><span>收起书本</span></button></div></div>
-        <div class="book-stage" id="book-stage">
+        <div class="book-guide-toolbar"><span>书引 · 从名字看见万物 <small id="book-guide-status">本页暂无书引</small></span><button class="text-button" id="toggle-book-guides" aria-pressed="true">已开启</button></div><div class="book-stage" id="book-stage">
           <div class="stage-topline"><span>THE LIVING BOOK</span><span><i></i>立体阅读</span></div>
           <div class="stage-orbit orbit-one" aria-hidden="true"></div><div class="stage-orbit orbit-two" aria-hidden="true"></div>
           <div class="book-shadow" aria-hidden="true"></div>
@@ -57,7 +57,7 @@
               <div class="closed-cover"><span>F O L I O</span><strong id="cover-title">书间</strong><i></i><small>每本书，都有自己的宇宙</small><svg><use href="#i-spark"/></svg></div>
             </div>
           </div>
-          <div class="floating-fragments" id="floating-fragments" aria-label="书中片段"></div>
+          <svg id="book-guide-lines" class="book-guide-lines" aria-hidden="true" hidden></svg><div id="book-guide-cards" class="book-guide-cards" aria-label="书引图片" hidden></div><div class="floating-fragments" id="floating-fragments" aria-label="书中片段"></div>
           <div class="stage-bottom"><span class="stage-caption">字里行间，自有天地。</span><span class="stage-hint"><svg><use href="#i-spark"/></svg>点击纸条，回到故事现场</span></div>
         </div>
         <div class="reader-controls"><div class="chapter-reading"><span class="reading-dot"></span><span id="reading-chapter">正在阅读</span></div><div class="page-controls"><small class="reflow-label">重排页</small><button class="round-button" id="prev-page" aria-label="上一页">←</button><span><b id="page-number">1</b><i>/</i><span id="page-total">1</span></span><button class="round-button" id="next-page" aria-label="下一页">→</button></div></div>
