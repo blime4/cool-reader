@@ -48,3 +48,42 @@ test('batched taxon details fill ancestry and convert sourced summaries into bou
   const [plant]=await remoteSearch('银杏');assert.equal(calls.length,2);assert.equal(plant.family,'Ginkgoaceae');assert.equal(plant.genus,'Ginkgo');
   assert.ok(plant.description.includes('落叶乔木 & 裸子植物'));assert.ok(!plant.description.includes('<'));assert.ok(!plant.description.includes('bad()'));assert.ok(plant.description.length<=6000);
 });
+test('verified 合欢树 alias retries 合欢 and scientific name only after exact query misses',async t=>{
+  const queries=[];
+  t.mock.method(globalThis,'fetch',async url=>{
+    if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('details unavailable');
+    const query=url.searchParams.get('q');queries.push(query);
+    return Response.json({results:query==='Albizia julibrissin'?[{id:47443,name:'Albizia julibrissin',rank:'species',preferred_common_name:'合欢'}]:[]});
+  });
+  const result=await remoteSearch('合欢树');assert.deepEqual(queries,['合欢树','合欢','Albizia julibrissin']);assert.equal(result[0].scientificName,'Albizia julibrissin');assert.equal(result[0].matchType,'alias');
+});
+test('a valid exact query is never replaced by suffix stripping or alias identity',async t=>{
+  const queries=[];t.mock.method(globalThis,'fetch',async url=>{if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('no details');queries.push(url.searchParams.get('q'));return Response.json({results:[]});});
+  assert.deepEqual(await remoteSearch('铁树'),[]);assert.deepEqual(queries,['铁树']);
+});
+test('long Chinese tree names retry a broad name fragment with an explicit species-confirmation caution',async t=>{
+  const queries=[];
+  t.mock.method(globalThis,'fetch',async url=>{
+    if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('details unavailable');
+    const query=url.searchParams.get('q');queries.push(query);
+    return Response.json({results:query==='冬青'?[{id:123,name:'Ilex chinensis',rank:'species',preferred_common_name:'冬青'}]:[]});
+  });
+  const [plant]=await remoteSearch('冬青树');assert.deepEqual(queries,['冬青树','冬青']);assert.equal(plant.name,'冬青');assert.equal(plant.matchType,'broader-candidate');assert.match(plant.matchNote,/名称片段「冬青」/);assert.match(plant.matchNote,/并非已确认别名/);
+});
+test('exact Chinese tree-name results suppress broader name-fragment lookup',async t=>{
+  const queries=[];
+  t.mock.method(globalThis,'fetch',async url=>{if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('no details');queries.push(url.searchParams.get('q'));return Response.json({results:[{id:123,name:'Ilex chinensis',rank:'species',preferred_common_name:'冬青树'}]});});
+  const [plant]=await remoteSearch('冬青树');assert.deepEqual(queries,['冬青树']);assert.equal(plant.matchType,'exact');assert.equal(plant.matchNote,undefined);
+});
+test('autocomplete distractions never inherit an exact or alias claim from the query',async t=>{
+  t.mock.method(globalThis,'fetch',async url=>{
+    if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('no details');
+    const q=url.searchParams.get('q');return Response.json({results:q==='合欢树'?[]:q==='合欢'?[{id:47443,name:'Albizia julibrissin',rank:'species',preferred_common_name:'合欢'},{id:99,name:'Acacia',rank:'genus',preferred_common_name:'相思树属',matched_term:'相思树属'}]:[{id:99,name:'Other species',rank:'species',preferred_common_name:'无关植物'}]});
+  });
+  const [fuzzy]=await remoteSearch('某种俗名');assert.equal(fuzzy.matchType,'candidate');assert.match(fuzzy.matchNote,/核对/);
+  const alias=await remoteSearch('合欢树');assert.equal(alias.find(plant=>plant.scientificName==='Albizia julibrissin').matchType,'alias');assert.equal(alias.find(plant=>plant.scientificName==='Acacia').matchType,'candidate');
+});
+test('broader name fragments are not attempted when the exact provider request fails',async t=>{
+  const queries=[];t.mock.method(globalThis,'fetch',async url=>{queries.push(url.searchParams.get('q'));throw new Error('offline');});
+  await assert.rejects(remoteSearch('冬青树'),/offline/);assert.deepEqual(queries,['冬青树']);
+});

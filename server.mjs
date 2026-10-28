@@ -4,7 +4,8 @@ import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {ApiError,validatePlant,duplicate,openStore,MAX_COLLECTION_BYTES} from './lib/plants-store.mjs';
-import {cacheImage,imageType,remoteSearch} from './lib/plants-network.mjs';
+import {cacheImage,imageType} from './lib/plants-network.mjs';
+import {searchPlantSources} from './lib/plant-search.mjs';
 import {openObsidianStore} from './lib/obsidian-store.mjs';
 const project=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(project,'dist');
@@ -35,9 +36,7 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       }
       if(url.pathname==='/api/search'&&method==='GET'){
         const query=(url.searchParams.get('q')??'').trim();if(!query||query.length>120)throw new ApiError(400,'请输入 1 至 120 字的植物名称');
-        const q=query.toLocaleLowerCase();const local=seeds.filter(plant=>[plant.name,plant.scientificName,...(plant.tags??[])].some(value=>String(value??'').toLocaleLowerCase().includes(q))).slice(0,6);
-        if(local.length)return json(res,200,{results:local});
-        try{return json(res,200,{results:await remoteSearch(query)});}catch{return json(res,200,{results:[],warning:'在线植物查询暂不可用。可稍后重试，或手动添加并标注待核对。'});}
+        try{return json(res,200,await searchPlantSources(query,{localSeeds:seeds}));}catch{return json(res,200,{results:[],warning:'在线植物查询暂不可用。可稍后重试，或手动添加并标注待核对。'});}
       }
       if(url.pathname==='/api/plants'&&method==='POST'){
         const input=validatePlant(await body(req));
@@ -89,3 +88,4 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   (async()=>{let config={};try{config=JSON.parse(await readFile(path.join(project,'config.local.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}return createServer(config);})().then(server=>server.listen(4173,'127.0.0.1',()=>console.log('Folio: http://127.0.0.1:4173'))).catch(error=>{console.error(error.message);process.exitCode=1;});
 }
+

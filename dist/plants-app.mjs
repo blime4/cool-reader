@@ -49,9 +49,23 @@ function render() {
 async function lookup(name) {
   name = name.trim(); if (!name) { $('plant-query').focus(); return; }
   const version = ++lookupVersion; searchName = name; $('plant-query').value = name; $('search-subtitle').textContent = `寻找「${name}」的资料，请选择与你相遇的那一株。`; $('candidate-list').replaceChildren(); $('search-loading').hidden = false; error('search-error'); $('search-warning').hidden = true; show('search-dialog', $('plant-query'));
-  try { const data = await api(`/api/search?q=${encodeURIComponent(name)}`); if (version !== lookupVersion || !$('search-dialog').open) return; const results = Array.isArray(data.results) ? data.results : []; if (data.warning) { $('search-warning').textContent = data.warning; $('search-warning').hidden = false; }
-    if (!results.length) { const empty = node('div', 'candidate-empty'); empty.append(node('h3', '', '暂时没有找到匹配的植物'), node('p', '', '试试更完整的中文名或学名，也可以先手动记录，之后再补充资料。')); $('candidate-list').append(empty); }
-    for (const item of results.slice(0, 20)) { const card = node('button', 'candidate-card'); card.type = 'button'; const info = node('div', 'candidate-body'); info.append(node('strong', '', item.name || name), node('em', '', item.scientificName || '学名待补充'), node('p', '', `${item.family || '科名待补充'} / ${item.genus || '属名待补充'}`), node('small', '', '选择这株植物 ↗')); card.append(photograph(item, 'candidate-image'), info); card.addEventListener('click', () => { close('search-dialog'); editPlant(item, $('plant-query'), true); }); $('candidate-list').append(card); }
+  try { const data = await api(`/api/search?q=${encodeURIComponent(name)}`); if (version !== lookupVersion || !$('search-dialog').open) return; const results = Array.isArray(data.results) ? data.results : [];
+    const warnings = [data.warning, ...(Array.isArray(data.warnings) ? data.warnings : [])].filter(value => typeof value === 'string' && value.trim());
+    if (warnings.length) { $('search-warning').textContent = [...new Set(warnings)].join(' '); $('search-warning').hidden = false; }
+    if (!results.length) { const empty = node('div', 'candidate-empty'); empty.append(node('h3', '', '暂时没有找到匹配的植物'), node('p', '', '试试规范中文名、别名或学名，例如“合欢树”也可试“合欢”。地方俗名可能对应多种植物，请结合资料来源核对；也可以先手动记录。')); $('candidate-list').append(empty); }
+    for (const item of results.slice(0, 20)) {
+      const card = node('button', 'candidate-card'); card.type = 'button';
+      const info = node('div', 'candidate-body');
+      info.append(node('strong', '', item.name || name), node('em', '', item.scientificName || '分类待核对'), node('p', '', `${item.family || '科名待补充'} / ${item.genus || '属名待补充'}`));
+      const sourceLabel = item.providerLabel || item.sourceLabel;
+      if (typeof sourceLabel === 'string' && sourceLabel.trim()) info.append(node('p', '', `资料来源：${sourceLabel}`));
+      const matchNote = typeof item.matchNote === 'string' && item.matchNote.trim() ? item.matchNote : ({ exact: '名称精确匹配', alias: '通过别名匹配，请核对植物资料' })[item.matchType];
+      if (matchNote) info.append(node('p', '', matchNote));
+      info.append(node('small', '', '选择这株植物 ↗'));
+      card.append(photograph(item, 'candidate-image'), info);
+      card.addEventListener('click', () => { close('search-dialog'); editPlant(item, $('plant-query'), true); });
+      $('candidate-list').append(card);
+    }
   } catch (err) { if (version === lookupVersion && $('search-dialog').open) error('search-error', err.message); }
   finally { if (version === lookupVersion) $('search-loading').hidden = true; }
 }
@@ -63,7 +77,17 @@ function editPlant(plant, trigger, isNew = false) {
   for (const [key, value] of Object.entries(values)) $(`edit-${key}`).value = value;
   $('edit-specimen').replaceChildren(); const photo = photograph(plant, 'image-wrap'); const details = node('div', 'specimen-details'); details.append(node('p', '', plant.description || '这株植物的资料还待补充。先留下名字和阅读笔记，慢慢认识它。'));
   if (plant.imageAttribution) details.append(node('div', 'credit', `图片：${plant.imageAttribution}`));
+  const sourceLabel = plant.providerLabel || plant.sourceLabel;
+  if (typeof sourceLabel === 'string' && sourceLabel.trim()) details.append(node('p', '', `资料来源：${sourceLabel}`));
   const url = safeUrl(plant.sourceUrl); if (url) { const link = node('a', '', '查看植物资料来源 ↗'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link); }
+  const seenSourceUrls = new Set(url ? [url] : []);
+  for (const [index, value] of (Array.isArray(plant.sourceUrls) ? plant.sourceUrls.slice(0, 8) : []).entries()) {
+    const extraUrl = safeUrl(value);
+    if (!extraUrl || seenSourceUrls.has(extraUrl)) continue;
+    seenSourceUrls.add(extraUrl);
+    const link = node('a', '', `其他植物资料来源 ${index + 1} ↗`);
+    link.href = extraUrl; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link);
+  }
   $('edit-specimen').append(photo, details); show('edit-dialog', trigger);
 }
 function tagsFromInput() { return [...new Set($('edit-tags').value.split(/[,，;；\n]+/u).map(tag => tag.trim()).filter(Boolean))]; }
