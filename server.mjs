@@ -36,7 +36,9 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       }
       if(url.pathname==='/api/search'&&method==='GET'){
         const query=(url.searchParams.get('q')??'').trim();if(!query||query.length>120)throw new ApiError(400,'请输入 1 至 120 字的植物名称');
-        try{return json(res,200,await searchPlantSources(query,{localSeeds:seeds}));}catch{return json(res,200,{results:[],warning:'在线植物查询暂不可用。可稍后重试，或手动添加并标注待核对。'});}
+        const kind=url.searchParams.get('kind')??'all';
+        if(!['all','plant','animal','bird'].includes(kind))throw new ApiError(400,'查询范围无效');
+        try{return json(res,200,await searchPlantSources(query,{localSeeds:seeds,kind}));}catch{return json(res,200,{results:[],warning:'在线物种查询暂不可用。可稍后重试，或手动添加并标注待核对。'});}
       }
       if(url.pathname==='/api/plants'&&method==='POST'){
         const input=validatePlant(await body(req));

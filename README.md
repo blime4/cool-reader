@@ -1,53 +1,49 @@
-# 书间 FOLIO · 植物志
+# 书间 FOLIO · 万物收藏
 
-本地植物收纳与阅读卡片。原 FOLIO 阅读器保留，GitHub Pages 提供启动入口。
+在 FOLIO 阅读器基础上，收藏阅读中遇到的植物、动物与鸟类。
 
-## 本机运行
+## 启动
 
-需要 Windows、Node.js22+。无需安装 npm 依赖、无需 API 密钥。
+需要 Windows、Node.js22+。无需安装 npm 依赖。
 
-运行 `npm start`，打开 http://127.0.0.1:4173 。原阅读器在 /index.html。
+运行 `npm start`，打开 http://127.0.0.1:4173 。也可以双击项目中的「启动植物志.cmd」或 scripts/launch.cmd（旧文件名保留兼容已安装启动器）。
 
-双击「启动植物志.cmd」可通过本机启动器后台启动服务。重复启动会先检查已有植物志服务；端口被其他程序占用时会报错，不会杀掉其他程序。
+GitHub Pages 入口：https://blime4.github.io/cool-reader/ 。当前用户首次使用需执行：
 
-## 从 GitHub Pages 启动
+    powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-protocol.ps1
 
-入口：https://blime4.github.io/cool-reader/
+Pages 只是启动入口，点击按钮通过已注册 folio-plants://start 启动本机固定服务，浏览器可能要求确认打开应用。项目移动后重新注册。卡片、配置和 Obsidian 内容不会上传 GitHub。
 
-先在自己的电脑上执行：
+## 万物收藏
 
-    powershell -NoProfile -File .\scripts\install-protocol.ps1
+查询范围可选全部、植物、动物、鸟类；动物范围包含鸟类。候选卡片标注类群、精确/别名/名称片段匹配及来源链接。收藏后可按类群、认识状态、书名或笔记筛选。
 
-它在当前用户的注册表中注册 `folio-plants://start`，不需要管理员权限。页面中的「启动本机服务」按钮会由浏览器请求打开本地应用，再启动 Node 服务并打开本地工作台。浏览器可能显示外部应用确认，需要你点击允许。
+类群根据资料源的分类学信息确定，不从名称猜测；未确定的类群显示其他。手动记录时可自行选择类群。旧卡片没有 kind 字段时按植物读取。不同界的同名学名不会被混为一个物种。
 
-GitHub Pages 仅提供静态入口，不运行 Node，也无法在未安装启动器的设备上直接启动进程。私有卡片和 Obsidian 内容不会上传 GitHub。入口页面不会跨域读取本机卡片。把项目移动位置后应重新运行安装脚本更新固定路径。
+iNaturalist 与维基百科 / Wikidata 共同查询，中文俗名可尝试别名（如合欢树→合欢）；名称片段候选会提示核对。维基百科接口在部分网络下可能超时，其他来源结果仍会保留。许可允许的照片保留作者署名，缺图时显示示意占位。
 
-## Obsidian 存储
+## Obsidian 与可读文件名
 
-在项目根目录创建 `config.local.json`（不会提交到 Git）：
+项目根目录 config.local.json（被 Git 忽略）：
 
-    {
-      "obsidianVault": "你的 Obsidian 库的绝对路径",
-      "obsidianFolder": "FOLIO植物志"
-    }
+    {"obsidianVault":"你的库的绝对路径","obsidianFolder":"FOLIO植物志"}
 
-库应包含 .obsidian 文件夹。启动后，既有 data/plants.json 收藏会迁移到库中的专用文件夹，原 JSON 保留作为迁移备份。此后 Markdown 卡片是存储来源；网页和 Obsidian 编辑读取同一份文件。
+原有管理目录 FOLIO植物志 保留兼容，不移动其他笔记。新卡片使用物种名称作为文件名，例如「金合欢属.md」。稳定 id 保留在 YAML 属性中，与文件名分离。
 
-只管理专用文件夹中由本应用创建的卡片，不改动其他笔记。植物名、学名、来源、标签等保存在 YAML 属性，阅读笔记保存在正文。删除卡片移入专用「已删除」目录，可手动恢复。不要移除卡片的 id 属性或改变专用卡片结构；损坏文件会提示修复，不会悄悄清空。
+启动时会把旧 UUID 文件名安全迁移为名称，逐字节保留卡片内容。若名称已经被其他文件占用，不覆盖原文件，而使用「名称 (编号).md」等区分名。非法文件名字符、Windows 保留名及大小写/规范化碰撞都会处理。新文件通过排他创建防止检查后的竞争覆盖。手动在 Obsidian 改名的卡片仍能识别。
 
-图片保存在专用附件目录。首次在线查询和下载图片需联网，内置图鉴与已存图片可离线阅读。移动整套收藏时复制整个专用文件夹，不要只复制 Markdown。
+网页修改物种名称时会同步调整文件名；覆盖自己的旧版本前会核对内容并存入专用「快照」，发现外部编辑则提示刷新。删除会移入专用「已删除」目录。Markdown 正文的「## 阅读笔记」及缩进保留，可以直接在 Obsidian 编辑。不要删除 id 或 folioPlant 管理标记（旧属性名保留兼容）。
 
-未配置 Obsidian 时继续使用 data/plants.json，不会丢失原有卡片。私有数据、个人配置和日志均被 .gitignore 排除。
+旧 data/plants.json 首次迁移后保留备份，不重复导入。图片在专用「附件」中。迁移整套收藏时复制整个管理文件夹（含附件、快照、已删除、迁移标记）。单独 JSON 备份不含图片二进制文件。
 
-## 使用
-
-植物名称 → 查询候选 → 确认物种 → 填写书名/章节/页码/笔记 → 收藏。默认书名《看不见的森林》。可编辑、搜索、按认识状态筛选、导出 JSON 备份并合并恢复。
-
-在线查询结合 iNaturalist 与维基百科 / Wikidata；提供常用别名回退（例如合欢树 → 合欢）和带提示的名称片段候选。候选会显示资料来源、匹配方式，并保存引用链接。维基候选需同时有 Wikidata 学名与植物描述证据；不把普通文章或同名动物作为植物卡片。图片仍只使用有明确许可和署名的来源。某个接口超时不影响其他来源结果，警告不会伪装成植物不存在。仍未查到时可手动创建待补充卡片。不是 AI 物种鉴定，不会凭空补造书籍内容。
-
-## 测试
+## 开发与检查
 
     node --test tests/*.test.mjs
 
-lib/ 为本地存储和查询；dist/ 为本地网页；docs/ 是唯一的 GitHub Pages 发布目录；scripts/ 为本机启动集成。data/、work/、outputs/、config.local.json 不会发布。
+- dist/：本地界面与原阅读工作台
+- docs/：GitHub Pages 静态启动页
+- lib/：查询、分类、本地与 Obsidian 存储
+- scripts/：固定路径的本机启动器
+- data/、work/、outputs/、config.local.json：不提交、不公开
 
+本地接口只监听回环地址，保留 Host/Origin 校验。启动器不会执行网址传入的命令，也不会结束占用端口的其他程序。
