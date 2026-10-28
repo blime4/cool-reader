@@ -1,5 +1,6 @@
 import { CATEGORIES, analyzeBook, makeDemoBook, filterFragments } from './engine.mjs';
 import { readBookFile } from './importers.mjs';
+import { createBookMotion } from './book-motion.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -12,11 +13,21 @@ const state = {
 };
 let uploadVersion = 0;
 let toastTimer;
-let flipTimer;
+let disposeTurn = () => {};
 let loading = false;
 let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
+let trailCache;
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+const pageMotion = createBookMotion({
+  getLimit:()=>state.book.pages.length,
+  reduced:()=>motionPreference.matches || typeof $('turning-leaf').animate !== 'function',
+  animate:animatePageTurn,
+  onCommit:index=>{ state.pageIndex = index; renderBook(); disposeTurn(); },
+  onTarget:updatePageButtons,
+});
+motionPreference.addEventListener('change',()=>{ if (motionPreference.matches) pageMotion.settle(); });
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -73,6 +84,8 @@ function clearFilters() {
 }
 
 function setBook(book, demo = false, bookId = '') {
+  pageMotion.reset(0);
+  disposeTurn();
   libraryBookId = bookId;
   returnQuote = '';
   state.book = book;
@@ -95,6 +108,7 @@ function renderBookInfo() {
   const book = state.book;
   $('book-title').textContent = book.title;
   $('cover-title').textContent = book.title;
+  $('cover-title').parentElement.classList.toggle('is-long-title',Array.from(book.title).length > 8);
   $('demo-badge').hidden = !state.demo;
   $('book-meta').textContent = `${state.demo ? '书间原创短篇' : '我的私人藏书'} · ${number(book.totalChars)} 字 · ${state.demo ? '一封信，三个人，一座海边小城' : '本地解析，安心探索'}`;
   $('stat-chapters').textContent = number(book.chapters.length);
@@ -121,10 +135,8 @@ function setHighlightedText(node, text, selectedText) {
   });
 }
 
-function renderBook() {
-  const page = currentPage();
-  if (!page) return;
-  const chapter = chapterById(page.chapterId);
+function pageParts(index) {
+  const page = state.book.pages[index];
   const text = page.text;
   let midpoint = Math.ceil(text.length / 2);
   const nearbyBreak = text.indexOf('\n', Math.max(0, midpoint - 50));
@@ -134,11 +146,20 @@ function renderBook() {
   if (selectedStart >= 0 && selectedStart < midpoint && selectedStart + selectedText.length > midpoint) {
     midpoint = selectedStart + selectedText.length;
   }
-  setHighlightedText($('page-left'), text.slice(0, midpoint), selectedText);
-  setHighlightedText($('page-right'), text.slice(midpoint), selectedText);
+  return {left:text.slice(0,midpoint),right:text.slice(midpoint),selectedText};
+}
+
+function renderBook() {
+  const page = currentPage();
+  if (!page) return;
+  const chapter = chapterById(page.chapterId);
+  const text = page.text;
+  const {left,right,selectedText} = pageParts(state.pageIndex);
+  setHighlightedText($('page-left'), left, selectedText);
+  setHighlightedText($('page-right'), right, selectedText);
   $('source-title').textContent = chapter?.title ?? '阅读原文';
   $('source-meta').textContent = `${state.book.title} · 重排第 ${number(state.pageIndex + 1)} / ${number(state.book.pages.length)} 页`;
-  setHighlightedText($('source-copy'), text, selectedText);
+  if ($('source-dialog').open) setHighlightedText($('source-copy'), text, selectedText);
   $('page-running-title').textContent = state.book.title;
   $('page-chapter-title').textContent = chapter?.title ?? '';
   $('reading-chapter').textContent = chapter?.title ?? '正在阅读';
@@ -147,8 +168,7 @@ function renderBook() {
   $('folio-right').textContent = state.pageIndex * 2 + 2;
   $('page-number').textContent = number(state.pageIndex + 1);
   $('page-total').textContent = number(state.book.pages.length);
-  $('prev-page').disabled = state.pageIndex === 0;
-  $('next-page').disabled = state.pageIndex >= state.book.pages.length - 1;
+  updatePageButtons();
   renderNature();
   persistReading();
   for (const card of $('fragment-list').querySelectorAll('.fragment-card')) {
@@ -162,19 +182,65 @@ function renderBook() {
 }
 
 function goToPage(index, animate = true) {
-  const target = Math.max(0, Math.min(state.book.pages.length - 1, index));
-  const previous = state.pageIndex;
-  state.pageIndex = target;
-  clearTimeout(flipTimer);
-  const book = $('physical-book');
-  book.classList.remove('flipping', 'flipping-back');
-  if (state.closed) toggleBook();
-  if (animate && previous !== target && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    void book.offsetWidth;
-    book.classList.add(target < previous ? 'flipping-back' : 'flipping');
-    renderBook();
-    flipTimer = setTimeout(() => book.classList.remove('flipping', 'flipping-back'), 660);
-  } else renderBook();
+  const wasClosed = state.closed;
+  if (wasClosed) toggleBook();
+  pageMotion.request(index,{animate:animate && !wasClosed});
+}
+
+function updatePageButtons() {
+  $('prev-page').disabled = pageMotion.target === 0;
+  $('next-page').disabled = pageMotion.target >= state.book.pages.length - 1;
+}
+
+function animatePageTurn(from,to) {
+  const forward = to > from;
+  const sheet = $('turning-leaf'), underlay = $('turn-underlay'), shade = $('turn-shadow');
+  const oldSide = forward ? 'right' : 'left', newSide = forward ? 'left' : 'right';
+  const original = $(`page-${oldSide}`).parentElement;
+  const oldScroll = original.querySelector('.leaf-copy').scrollTop;
+  const cloneLeaf = (side,index,current = false) => {
+    const source = $(`page-${side}`).parentElement;
+    const leaf = source.cloneNode(true);
+    for (const child of [leaf,...leaf.querySelectorAll('[id]')]) child.removeAttribute('id');
+    for (const child of leaf.querySelectorAll('[tabindex]')) child.removeAttribute('tabindex');
+    leaf.classList.add('turn-page');
+    if (!current) {
+      const parts = pageParts(index);
+      const page = state.book.pages[index];
+      const heading = side === 'left' ? state.book.title : chapterById(page.chapterId)?.title ?? '';
+      leaf.querySelector('.page-running-title').textContent = heading;
+      setHighlightedText(leaf.querySelector('.leaf-copy'),parts[side],parts.selectedText);
+      leaf.querySelector('.page-folio').textContent = index*2 + (side === 'left' ? 1 : 2);
+    }
+    return leaf;
+  };
+  const front = element('div','turn-face turn-front'), back = element('div','turn-face turn-back');
+  const snapshot = cloneLeaf(oldSide,from,true);
+  front.append(snapshot); back.append(cloneLeaf(newSide,to));
+  sheet.replaceChildren(front,back);
+  underlay.replaceChildren(cloneLeaf(oldSide,to));
+  sheet.className = `turning-leaf ${forward ? 'turn-forward' : 'turn-backward'}`;
+  underlay.className = `turn-underlay ${forward ? 'underlay-right' : 'underlay-left'}`;
+  sheet.hidden = underlay.hidden = shade.hidden = false;
+  snapshot.querySelector('.leaf-copy').scrollTop = oldScroll;
+  $('physical-book').classList.add('is-turning');
+  const sign = forward ? -1 : 1;
+  const animation = sheet.animate([
+    {transform:`translateZ(1px) rotateY(${sign*5}deg)`},
+    {transform:`translateZ(14px) rotateY(${sign*88}deg)`,offset:.49},
+    {transform:`translateZ(1px) rotateY(${sign*175}deg)`},
+  ],{duration:430,easing:'cubic-bezier(.3,.08,.24,1)',fill:'both'});
+  const shadow = shade.animate([{opacity:0},{opacity:.2,offset:.45},{opacity:0}],{duration:430,easing:'ease-in-out',fill:'both'});
+  let disposed = false;
+  const cleanup = () => {
+    if (disposed) return; disposed = true;
+    sheet.hidden = underlay.hidden = shade.hidden = true;
+    animation.cancel(); shadow.cancel();
+    sheet.replaceChildren(); underlay.replaceChildren();
+    $('physical-book').classList.remove('is-turning');
+  };
+  disposeTurn = cleanup;
+  return {finished:Promise.all([animation.finished,shadow.finished]),cancel:cleanup};
 }
 
 function selectFragment(fragment) {
@@ -185,6 +251,7 @@ function selectFragment(fragment) {
 }
 
 function toggleBook() {
+  if (!state.closed && pageMotion.busy) pageMotion.settle();
   state.closed = !state.closed;
   $('book-stage').classList.toggle('is-closed', state.closed);
   $('toggle-book').querySelector('span').textContent = state.closed ? '展开书本' : '收起书本';
@@ -437,6 +504,8 @@ function renderNature() {
     button.addEventListener('click',()=>{ location.href = collectionLink(match.name,pageContext(match.quote)); });
     $('nature-clues').append(button);
   }
+  if (trailCache?.index === natureIndex && trailCache?.collection === collectedSpecies && trailCache?.chapter === state.chapter) return;
+  trailCache = {index:natureIndex,collection:collectedSpecies,chapter:state.chapter};
   const names = new Set(collectedSpecies.map(item=>item.name));
   const trail = [];
   for (const entry of natureIndex) {
@@ -606,15 +675,15 @@ $('sample-button').addEventListener('click', () => {
   setBook(makeDemoBook(), true);
   toast('已翻开书间原创短篇《海边来信》');
 });
-$('prev-page').addEventListener('click', () => { state.selected = null; goToPage(state.pageIndex - 1); });
-$('next-page').addEventListener('click', () => { state.selected = null; goToPage(state.pageIndex + 1); });
+$('prev-page').addEventListener('click', () => { state.selected = null; returnQuote = ''; goToPage(pageMotion.target - 1); });
+$('next-page').addEventListener('click', () => { state.selected = null; returnQuote = ''; goToPage(pageMotion.target + 1); });
 $('toggle-book').addEventListener('click', toggleBook);
 $('capture-encounter').addEventListener('click',captureEncounter);
 $('capture-source').addEventListener('click',captureEncounter);
 $('encounter-form').addEventListener('submit',event=>{ event.preventDefault(); const name = $('encounter-name').value.trim(); if (name) location.href = collectionLink(name,pageContext(encounterQuote)); });
 $('read-source').addEventListener('click', () => {
   openDialog('source-dialog', $('read-source'));
-  setHighlightedText($('source-copy'), currentPage()?.text ?? '', state.selected?.pageId === currentPage()?.id ? state.selected.text : '');
+  setHighlightedText($('source-copy'), currentPage()?.text ?? '', pageParts(state.pageIndex).selectedText);
 });
 $('clear-filters').addEventListener('click', clearFilters);
 $('reset-chapter').addEventListener('click', () => chooseChapter('all'));
@@ -671,8 +740,8 @@ document.addEventListener('keydown', event => {
   if (event.target instanceof Element && event.target.closest('input,textarea,select,button,[contenteditable="true"]')) return;
   if (document.querySelector('dialog[open]')) return;
   if (event.key === '/') { event.preventDefault(); $('search-input').focus(); }
-  if (event.key === 'ArrowRight') { event.preventDefault(); state.selected = null; goToPage(state.pageIndex + 1); }
-  if (event.key === 'ArrowLeft') { event.preventDefault(); state.selected = null; goToPage(state.pageIndex - 1); }
+  if (event.key === 'ArrowRight') { event.preventDefault(); state.selected = null; returnQuote = ''; goToPage(pageMotion.target + 1); }
+  if (event.key === 'ArrowLeft') { event.preventDefault(); state.selected = null; returnQuote = ''; goToPage(pageMotion.target - 1); }
 });
 for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).entries()) {
   leaf.tabIndex = 0;
