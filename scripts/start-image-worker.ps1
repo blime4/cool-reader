@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PythonPath, [int]$Port = 4174, [string]$ModelPath)
+param([string]$PythonPath, [int]$Port = 4174, [string]$ModelPath, [ValidateRange(0, 86400)][int]$IdleSeconds = 600)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $PythonPath) { $PythonPath = Join-Path $projectRoot '.venv-image/Scripts/python.exe' }
@@ -17,5 +17,5 @@ if (-not (Test-Path -LiteralPath $tokenPath)) {
 }
 if ($ModelPath) { $env:QWEN_IMAGE_MODEL = (Resolve-Path -LiteralPath $ModelPath).Path }
 # No dependency installation or model download occurs here.
-& $PythonPath (Join-Path $PSScriptRoot 'qwen-image-worker.py') --port $Port --token-file $tokenPath
+& $PythonPath (Join-Path $PSScriptRoot 'qwen-image-worker.py') --port $Port --token-file $tokenPath --idle-seconds $IdleSeconds
 exit $LASTEXITCODE

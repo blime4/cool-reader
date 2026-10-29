@@ -5,7 +5,9 @@ import {createGenerationAction} from './image-generation-action.mjs';
 const node = (tag,className,text) => { const element = document.createElement(tag); element.className = className; if (text !== undefined) element.textContent = text; return element; };
 const svgNode = tag => document.createElementNS('http://www.w3.org/2000/svg',tag);
 
-export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLookup,createGeneration=createGenerationAction}) {
+export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLookup,onRegenerate,getRegenerationState=()=>null,createGeneration=createGenerationAction,limit=4}) {
+  const normalizeLimit = value => Number.isFinite(value) ? Math.max(0,Math.min(16,Math.floor(value))) : 4;
+  let guideLimit = normalizeLimit(limit);
   let enabled = true, suspended = false, transitioning = false, frame = 0, active = -1, autoPage, rendered = {guides:[],parts:[]};
   let renderVersion = 0;
   const generated = new Map();
@@ -45,10 +47,13 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
     svg.setAttribute('viewBox',`0 0 ${stageRect.width} ${stageRect.height}`);
     for (const [index,card] of guideCards.entries()) {
       const rect = visibleAnchor(index);
-      paths[index].style.display = dots[index].style.display = rect ? '' : 'none';
       card.classList.toggle('guide-word-offscreen',!rect);
-      if (!rect) continue;
+      if (!rect) { paths[index].style.display = dots[index].style.display = 'none'; continue; }
       const cardRect = card.getBoundingClientRect();
+      const railRect = card.closest('.guide-perimeter-rail')?.getBoundingClientRect();
+      const cardVisible = !railRect || cardRect.left >= railRect.left && cardRect.right <= railRect.right && cardRect.top >= railRect.top && cardRect.bottom <= railRect.bottom;
+      paths[index].style.display = dots[index].style.display = cardVisible ? '' : 'none';
+      if (!cardVisible) continue;
       const x = (rect.left+rect.right)/2-stageRect.left, y = rect.bottom-stageRect.top;
       const endX = (cardRect.left+cardRect.right)/2-stageRect.left, endY = cardRect.top-stageRect.top;
       const elbowY = y + Math.max(20,(endY-y)*.55);
@@ -75,7 +80,7 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
   function paintLeaf(leaf,text,selectedText,guides,offset) {
     const scroll = leaf.scrollTop;
     leaf.replaceChildren(); let mark;
-    for (const segment of segmentGuideText(text,guides,selectedText,{offset})) {
+    for (const segment of segmentGuideText(text,guides,selectedText,{offset,limit:guideLimit})) {
       let parent = leaf;
       if (segment.selected) { if (!mark) { mark = node('mark',''); leaf.append(mark); } parent = mark; } else mark = null;
       if (segment.guideIndex === null) { parent.append(document.createTextNode(segment.text)); continue; }
@@ -90,14 +95,15 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
     }
     leaf.scrollTop = scroll;
   }
-  function render({guides,parts,key,autoLocate = false}) {
+  function render({guides,allGuides=guides,parts,key,autoLocate = false}) {
     const version = ++renderVersion;
+    const sourceGuides = Array.isArray(allGuides) ? allGuides : [];
     const stablePageKey = key && typeof key === 'object' ? key.id || key.pageId || '' : String(key || '');
     const generationKey = guide => JSON.stringify([stablePageKey,guide.kind || 'other',guide.lookupName || guide.name || '',guide.scientificName || '']);
-    rendered = {guides:guides.slice(0,2).map(guide=>{
+    rendered = {guides:sourceGuides.slice(0,guideLimit).map(guide=>{
       const cached = generated.get(generationKey(guide));
       return cached && !natureImageModel(guide).url ? Object.assign(guide,cached) : guide;
-    }),parts,key,autoLocate};
+    }),allGuides:sourceGuides,parts,key,autoLocate};
     guideCards = []; paths = []; dots = []; saveButtons = []; collectionLinks = []; cards.replaceChildren(); svg.replaceChildren();
     for (const [index,part] of parts.entries()) paintLeaf(leaves[index],part.text,part.selectedText,enabled ? rendered.guides : [],part.offset || 0);
     for (const [index,guide] of rendered.guides.entries()) {
@@ -121,6 +127,15 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
       const collectionLink = node('a','book-guide-view-collection','查看收藏 ↗'); collectionLink.href = '/plants.html#collection-title'; collectionLink.hidden = !guide.collected;
       saveButtons.push(lookup); collectionLinks.push(collectionLink);
       actions.append(find,lookup); body.append(actions);
+      if(typeof onRegenerate==='function'&&/^\/generated-images\/[a-f0-9-]{36}\.jpg$/.test(natureImageModel(guide).url)){
+        const busy=['queued','running'].includes(getRegenerationState(guide)?.status);
+        const regenerate=node('button','book-guide-regenerate',busy?'后台重新生成中':guide.collected?'重新生成 AI 图':'重新生成并收藏');regenerate.type='button';regenerate.disabled=busy;regenerate.setAttribute('aria-label',`重新生成${guide.name}的 AI 示意图`);
+        regenerate.addEventListener('click',async()=>{
+          if(regenerate.disabled)return;regenerate.disabled=true;regenerate.textContent='提交后台…';
+          try{await onRegenerate(guide);if(renderVersion===version&&rendered.guides[index]===guide)regenerate.textContent='后台重新生成中';}
+          catch{if(renderVersion===version&&rendered.guides[index]===guide){regenerate.disabled=false;regenerate.textContent='重试重新生成';}}
+        });actions.append(regenerate);
+      }
       if (!natureImageModel(guide).url) {
         const generation = createGeneration({
           getItem:()=>guide,
@@ -157,5 +172,5 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
   stage.addEventListener('transitioncancel',event=>{ if (event.target.classList.contains('physical-book') && event.propertyName === 'transform') schedule(); });
   const observer = new ResizeObserver(schedule); observer.observe(stage); observer.observe(cards);
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',event=>{ if (event.matches) { transitioning = false; visibility(); } });
-  return {render,schedule,updateCollected(check) { rendered.guides.forEach((guide,index)=>{ if (check(guide)) markCollected(index,true); }); }, reset() { suspended = transitioning = false; visibility(); }, suspend(value) { suspended = value; visibility(); }, settleBookTransition() { transitioning = false; visibility(); }, bookTransition({animated = true} = {}) { transitioning = animated && !matchMedia('(prefers-reduced-motion: reduce)').matches; visibility(); }};
+  return {render,setLimit(next) { const value = normalizeLimit(next); if (value !== guideLimit) { guideLimit = value; render(rendered); } return guideLimit; },schedule,updateCollected(check) { rendered.guides.forEach((guide,index)=>{ if (check(guide)) markCollected(index,true); }); }, reset() { suspended = transitioning = false; visibility(); }, suspend(value) { suspended = value; visibility(); }, settleBookTransition() { transitioning = false; visibility(); }, bookTransition({animated = true} = {}) { transitioning = animated && !matchMedia('(prefers-reduced-motion: reduce)').matches; visibility(); }};
 }

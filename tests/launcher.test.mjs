@@ -19,6 +19,26 @@ test('launcher only starts its fixed local server and verifies service identity'
   assert.match(launcher, /server\.mjs/);
   assert.doesNotMatch(launcher, /Stop-Process|taskkill|Invoke-Expression|\$args|DownloadString|Invoke-WebRequest[^\n]+https:/i);
 });
+test('launcher starts one configured local image worker without killing an occupied port', async () => {
+  const launcher = await source('scripts/start-local.ps1');
+  assert.match(launcher, /config\.local\.json/);
+  assert.match(launcher, /imageGeneration/);
+  assert.match(launcher, /http:\/\/127\.0\.0\.1:\$Port\/health/);
+  assert.match(launcher, /image-worker\.token/);
+  assert.match(launcher, /folio-qwen-image/);
+  assert.match(launcher, /start-image-worker\.ps1/);
+  assert.match(launcher, /models[\\/]Qwen-Image-2\.1/);
+  assert.match(launcher, /\.venv-image[\\/]Scripts[\\/]python\.exe/);
+  assert.match(launcher, /folio-image-worker\.out\.log/);
+  assert.match(launcher, /folio-image-worker\.err\.log/);
+  assert.doesNotMatch(launcher, /Stop-Process|taskkill/i);
+});
+test('image generation docs describe automatic launch and resident pipeline timeout', async () => {
+  const readme = await source('README.md');
+  assert.match(readme, /launch\.cmd[^\n]+自动启动图像 worker/i);
+  assert.match(readme, /成功后模型常驻[^\n]+10\s*分钟/);
+  assert.doesNotMatch(readme, /每次任务按需重新加载模型/);
+});
 test('public portal has explicit local launch links without accessing private data', async () => {
   const html = await source('docs/index.html');
   assert.match(html, /href="folio-plants:\/\/start"/);

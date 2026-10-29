@@ -2,7 +2,7 @@ import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {ApiError,validatePlant,duplicate,openStore,MAX_COLLECTION_BYTES} from './lib/plants-store.mjs';
 import {cacheImage,imageType} from './lib/plants-network.mjs';
 import {searchPlantSources} from './lib/plant-search.mjs';
@@ -10,10 +10,13 @@ import {openObsidianStore} from './lib/obsidian-store.mjs';
 import {openReadingLibrary} from './lib/reading-library.mjs';
 import {buildNameMatcher} from './lib/reading-matcher.mjs';
 import {openImageGeneration} from './lib/image-generation.mjs';
+import {createCollectionTasks} from './lib/collection-tasks.mjs';
 const project=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(project,'dist');
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.wasm':'application/wasm','.bcmap':'application/octet-stream','.pfb':'application/octet-stream','.ttf':'font/ttf','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
 function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
+function editVersion(plant){return createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(plant).filter(([key])=>key!=='editVersion').sort(([a],[b])=>a.localeCompare(b))))).digest('hex');}
+function editablePlant(plant){return {...plant,editVersion:editVersion(plant)};}
 async function body(req,max=2*1024*1024){
   if(!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type']??''))throw new ApiError(415,'请使用 JSON 请求');
   const message=`请求内容不能超过 ${max/1024/1024} MB`;if(Number(req.headers['content-length'])>max)throw new ApiError(413,message);
@@ -24,6 +27,7 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
   dataDir=path.resolve(dataDir);const store=obsidianVault?await openObsidianStore({vault:obsidianVault,folder:obsidianFolder,dataDir,staticDir:root}):await openStore(dataDir);
   const library=await openReadingLibrary({bookPath:readingBookPath,dataDir});
   const generator=await openImageGeneration({dataDir,config:imageGeneration});
+  const collectionTasks=createCollectionTasks({store,generator});
   let seeds=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
   try{
     const catalog=JSON.parse(await readFile(natureCatalogPath,'utf8'));const records=Array.isArray(catalog)?catalog:catalog.records;
@@ -40,6 +44,10 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       const url=new URL(req.url,`http://${req.headers.host}`);const method=req.method;
       if(url.pathname==='/api/health'&&method==='GET')return json(res,200,{app:'folio-plants',ok:true});
       if(url.pathname==='/api/image-generation/health'&&method==='GET')return json(res,200,await generator.health());
+      if(url.pathname==='/api/collection-tasks'&&method==='POST')return json(res,202,{task:await collectionTasks.start(await body(req,128*1024))});
+      if(url.pathname==='/api/collection-tasks'&&method==='GET')return json(res,200,{tasks:await collectionTasks.list()});
+      const collectionTask=url.pathname.match(/^\/api\/collection-tasks\/([a-f0-9-]{36})$/);
+      if(collectionTask&&method==='GET')return json(res,200,{task:await collectionTasks.get(collectionTask[1])});
       if(url.pathname==='/api/image-generation/jobs'&&method==='POST')return json(res,202,{job:await generator.start(await body(req,4096))});
       const generationJob=url.pathname.match(/^\/api\/image-generation\/jobs\/([a-f0-9-]{36})$/);
       if(generationJob&&method==='GET')return json(res,200,{job:generator.get(generationJob[1])});
@@ -54,7 +62,7 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(url.pathname==='/api/reading-state'&&method==='GET')return json(res,200,{state:await library.getState(url.searchParams.get('bookId'))});
       if(url.pathname==='/api/reading-state'&&method==='PUT')return json(res,200,{state:await library.putState(await body(req,16*1024))});
       if(url.pathname==='/api/storage'&&method==='GET')return json(res,200,store.info??{type:'json',folderPath:dataDir});
-      if(url.pathname==='/api/plants'&&method==='GET')return json(res,200,{plants:await store.list()});
+      if(url.pathname==='/api/plants'&&method==='GET')return json(res,200,{plants:(await store.list()).map(editablePlant)});
       if(url.pathname==='/api/backup'&&method==='GET'){
         res.setHeader('Content-Disposition',`attachment; filename="folio-plants-backup.json"; filename*=UTF-8''${encodeURIComponent('植物收藏备份.json')}`);
         return json(res,200,{version:1,plants:await store.list()});
@@ -71,7 +79,7 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
         const cached=await cacheImage(input.imageUrl,dataDir);input.imageUrl=cached.imageUrl;
         const now=new Date().toISOString();const plant={...input,id:randomUUID(),createdAt:now,updatedAt:now};
         await store.mutate(next=>{if(next.length>=5000)throw new ApiError(400,'最多收藏 5000 种植物');if(duplicate(next,plant))throw new ApiError(409,'这株植物已在收藏中');next.push(plant);});
-        return json(res,201,{plant,...(cached.warning?{warning:cached.warning}:{})});
+        return json(res,201,{plant:editablePlant(plant),...(cached.warning?{warning:cached.warning}:{})});
       }
       if(url.pathname==='/api/restore'&&method==='POST'){
         const input=await body(req,MAX_COLLECTION_BYTES);if(input?.version!==1||!Array.isArray(input.plants)||input.plants.length>5000)throw new ApiError(400,'备份格式无效，最多 5000 条植物');
@@ -83,13 +91,16 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(match&&(method==='PUT'||method==='DELETE')){
         const patch=method==='PUT'?await body(req):null;
         if(method==='PUT'&&(!patch||typeof patch!=='object'||Array.isArray(patch)))throw new ApiError(400,'资料格式无效');
+        const expected=req.headers['if-match'];
+        if(method==='PUT'&&expected!==undefined&&!/^"[a-f0-9]{64}"$/.test(expected))throw new ApiError(400,'卡片版本格式无效，请重新加载');
         const plant=await store.mutate(next=>{const index=next.findIndex(p=>p.id===match[1]);if(index<0)throw new ApiError(404,'未找到植物');
           if(method==='DELETE'){next.splice(index,1);return null;}
+          if(expected!==undefined&&expected!==`"${editVersion(next[index])}"`)throw new ApiError(409,'卡片已在其他窗口或 Obsidian 中修改，请重新加载后核对再保存');
           const previous=next[index];const updated={...validatePlant({...previous,...patch}),id:previous.id,createdAt:previous.createdAt,updatedAt:new Date().toISOString()};
           if(duplicate(next.filter((_,i)=>i!==index),updated))throw new ApiError(409,'与已有植物重复');
           // Editing an image keeps a remote allowlisted URL; add-time caching remains bounded.
           next[index]=updated;return updated;
-        });return json(res,200,method==='DELETE'?{deleted:true}:{plant});
+        });return json(res,200,method==='DELETE'?{deleted:true}:{plant:editablePlant(plant)});
       }
       if(url.pathname.startsWith('/api/'))throw new ApiError(404,'接口不存在');
       if(method!=='GET'&&method!=='HEAD')throw new ApiError(405,'请求方法不受支持');

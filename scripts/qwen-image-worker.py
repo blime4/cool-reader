@@ -14,10 +14,42 @@ from pathlib import Path
 MODEL = "Qwen/Qwen-Image-2.1"
 LOCK = threading.Lock()
 PIPELINE = None
+IDLE_TIMER = None
+IDLE_GUARD = threading.Lock()
+
+
+def cancel_idle_release():
+    global IDLE_TIMER
+    with IDLE_GUARD:
+        timer = IDLE_TIMER
+        IDLE_TIMER = None
+    if timer is not None:
+        timer.cancel()
+
+
+def schedule_idle_release(seconds):
+    global IDLE_TIMER
+    cancel_idle_release()
+    if seconds <= 0:
+        return
+
+    def release_when_idle():
+        global IDLE_TIMER
+        with IDLE_GUARD:
+            IDLE_TIMER = None
+        with LOCK:
+            release_pipeline()
+
+    timer = threading.Timer(seconds, release_when_idle)
+    timer.daemon = True
+    with IDLE_GUARD:
+        IDLE_TIMER = timer
+    timer.start()
 
 
 def release_pipeline():
     global PIPELINE
+    cancel_idle_release()
     PIPELINE = None
     gc.collect()
     # Health/readiness must remain lightweight: never import torch merely to clean up.
@@ -106,7 +138,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"error": "Not found"})
         ready, reason = readiness()
         self.reply(200, {"app": "folio-qwen-image", "model": MODEL, "ready": ready,
-                         "reason": reason, "loaded": PIPELINE is not None, "busy": LOCK.locked()})
+                         "reason": reason, "loaded": PIPELINE is not None, "busy": LOCK.locked(),
+                         "idleTimeoutSeconds": self.server.idle_seconds})
 
     def do_POST(self):
         if not self.authorized():
@@ -128,9 +161,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, {"error": "Invalid request"})
         if not LOCK.acquire(blocking=False):
             return self.reply(429, {"error": "An image is already being generated"})
+        cancel_idle_release()
         try:
             error = None
             image = None
+            failed = False
             try:
                 ready, reason = readiness()
                 if not ready:
@@ -141,12 +176,14 @@ class Handler(BaseHTTPRequestHandler):
                         raise RuntimeError("生成图片超过 8 MB")
             except Exception:
                 error = "本地模型推理失败：请检查 Diffusers/CUDA 版本、模型完整性与内存；未生成图片。"
-            finally:
-                # Drop exception tracebacks before collecting; they can retain model tensors.
-                # Finish cleanup before returning success, so the next task reloads a fresh model.
+                failed = True
+            if failed:
+                # Run only after leaving except: an active traceback can retain model tensors.
+                # A failed pipeline is unsafe to reuse.
                 release_pipeline()
             if error:
                 return self.reply(503, {"error": error})
+            schedule_idle_release(self.server.idle_seconds)
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(image)))
@@ -160,14 +197,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=4174)
     parser.add_argument("--token-file", type=Path, required=True)
+    parser.add_argument("--idle-seconds", type=int, default=600,
+                        help="release the cached pipeline after this many idle seconds; 0 keeps it loaded")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("Invalid port")
+    if not 0 <= args.idle_seconds <= 86400:
+        parser.error("Invalid idle timeout")
     token = args.token_file.read_text(encoding="utf-8").strip()
     if not 24 <= len(token) <= 256:
         parser.error("Invalid token file")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     server.token = token
+    server.idle_seconds = args.idle_seconds
     print("Folio Qwen worker: http://127.0.0.1:" + str(args.port), flush=True)
     server.serve_forever()
 

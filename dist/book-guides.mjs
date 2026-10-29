@@ -25,9 +25,9 @@ function sameIdentity(a,b){
   if(a.scientificName&&b.scientificName)return normalize(a.scientificName)===normalize(b.scientificName);
   return Boolean(a.id&&b.id&&a.id===b.id);
 }
-export function selectBookGuides(text,collected=[],seeds=[],{limit=2,names=NATURE_WORDS}={}){
+export function selectBookGuides(text,collected=[],seeds=[],{limit=4,names=NATURE_WORDS}={}){
   const source=typeof text==='string'?text:'';
-  const count=Number.isFinite(limit)?Math.max(0,Math.min(3,Math.floor(limit))):2;if(!source||!count)return [];
+  const count=Number.isFinite(limit)?Math.max(0,Math.min(16,Math.floor(limit))):4;if(!source||!count)return [];
   const buckets=new Map();
   for(const [items,isCollected] of [[collected,true],[seeds,false]]){
     if(!Array.isArray(items))continue;
@@ -68,11 +68,12 @@ export function selectBookGuides(text,collected=[],seeds=[],{limit=2,names=NATUR
     return {...guide,name:source.slice(first.start,first.end),offset:first.start,length:first.end-first.start,ranges:matches.map(({start,end})=>({start,end})),count:matches.length,quote:source.slice(Math.max(0,first.start-65),first.end+100).slice(0,1000)};
   });
 }
-export function segmentGuideText(text,guides=[],selectedText='',{offset=0}={}){
+export function segmentGuideText(text,guides=[],selectedText='',{offset=0,limit=4}={}){
   const source=typeof text==='string'?text:'';if(!source)return [];
   if(!Number.isSafeInteger(offset)||offset<0)throw new RangeError('文本起始位置无效');
+  const count=Number.isFinite(limit)?Math.max(0,Math.min(16,Math.floor(limit))):4;
   const ranges=[];
-  for(const [guideIndex,guide] of (Array.isArray(guides)?guides:[]).slice(0,3).entries()){
+  for(const [guideIndex,guide] of (Array.isArray(guides)?guides:[]).slice(0,count).entries()){
     if(Array.isArray(guide?.ranges)){
       for(const span of guide.ranges){
         if(!Number.isSafeInteger(span?.start)||!Number.isSafeInteger(span?.end)||span.start<offset||span.end>offset+source.length||span.end<=span.start)continue;

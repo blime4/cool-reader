@@ -8,6 +8,10 @@ import {createReaderFullscreen} from './reader-fullscreen.mjs';
 import {createReaderTypography} from './reader-typography.mjs';
 import {createGuideCollector,findCollectedGuide} from './guide-collection.mjs';
 import {createSelectionExplorer,selectionExplorerName,sameExplorerSelection} from './selection-explorer.mjs';
+import {createGenerationQueueView} from './generation-queue-view.mjs';
+import {createReaderNavigation} from './reader-navigation.mjs';
+import {createGuideDensity,createGuidePerimeter} from './guide-density.mjs';
+import {createGuideSize} from './guide-size.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -26,20 +30,26 @@ let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
 let guideSeeds = [], bookGuideView;
+const guideDensity = createGuideDensity({select:$('guide-density'),stage:$('book-stage'),storage:window.localStorage,onChange:value=>{
+  guidePage = null; bookGuideView?.setLimit(value); refreshReadingGuides();
+}});
+const guideSize = createGuideSize({select:$('guide-size'),root:$('reader-panel'),storage:window.localStorage,onChange:()=>guidePerimeter.schedule()});
 let guidePage, guideCollection, guideSeedRef, guideNamesRef, guideMatchRef, currentGuides = [];
 const pageReadingMatches = new WeakMap();
 const readingMatchFailures = new WeakSet();
 const noReadingMatches = [];
 let pendingMatchPage, matchController, selectedReading, selectedReadingPage;
 let selectionExplorer, selectionExplorerTimer;
-const guideCollector = createGuideCollector({
-  getCollection:()=>collectedSpecies,
-  onCollection:next=>{
+function updateCollectedSpecies(next){
     collectedSpecies = next;
     natureNames = [...new Set([...natureNames,...next.map(item=>item.name)])]; natureIndexedBook = null;
     bookGuideView?.updateCollected(guide=>Boolean(findCollectedGuide(next,guide)));
-    renderNature(); renderBookInfo();
-  },
+    selectionExplorer?.syncCollection(next);
+    renderNature(); renderBookInfo();refreshReadingGuides();
+}
+const guideCollector = createGuideCollector({
+  getCollection:()=>collectedSpecies,
+  onCollection:updateCollectedSpecies,
   request:async(path,options)=>{
     const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),20000);
     try { return await fetch(path,{...options,signal:controller.signal}); } finally { clearTimeout(timer); }
@@ -191,7 +201,7 @@ function guidesForPage(index) {
   const page = state.book.pages[index];
   const matches = pageReadingMatches.get(page) || noReadingMatches;
   if (guidePage !== page || guideCollection !== collectedSpecies || guideSeedRef !== guideSeeds || guideNamesRef !== natureNames || guideMatchRef !== matches) {
-    currentGuides = selectBookGuides(page.text,collectedSpecies,[...guideSeeds,...matches.flatMap(item=>item.records)],{limit:2,names:[...natureNames,...matches.map(item=>item.name)]}).map(guide=>{
+    currentGuides = selectBookGuides(page.text,collectedSpecies,[...guideSeeds,...matches.flatMap(item=>item.records)],{limit:guideDensity.value,names:[...natureNames,...matches.map(item=>item.name)]}).map(guide=>{
       const lookupName = readingLookupName(guide.name,matches);
       const value = lookupName === guide.name ? guide : {...guide,lookupName,matchNote:`原文「${guide.name}」可能指「${lookupName}」，需核对`};
       return {...value,collected:Boolean(findCollectedGuide(collectedSpecies,value))};
@@ -800,6 +810,7 @@ $('toggle-book').addEventListener('click', toggleBook);
 $('capture-encounter').addEventListener('click',captureEncounter);
 $('capture-source').addEventListener('click',captureEncounter);
 document.addEventListener('selectionchange',()=>{
+  if(selectionExplorer?.detailOpen())return;
   const captured = readCurrentSelection();
   if(captured&&selectedReadingPage===currentPage()&&sameExplorerSelection(selectedReading,captured)){updateSelectionActions();return;}
   if (captured) {
@@ -885,26 +896,37 @@ document.addEventListener('keydown', event => {
   if (event.target instanceof Element && event.target.closest('input,textarea,select,button,[contenteditable="true"]')) return;
   if (document.querySelector('dialog[open]')) return;
   if (event.key === '/') { event.preventDefault(); $('search-input').focus(); }
-  if (event.key === 'ArrowRight') { event.preventDefault(); state.selected = null; returnQuote = ''; goToPage(pageMotion.target + 1); }
-  if (event.key === 'ArrowLeft') { event.preventDefault(); state.selected = null; returnQuote = ''; goToPage(pageMotion.target - 1); }
 });
+createReaderNavigation({stage:$('book-stage'),getTarget:()=>pageMotion.target,getPages:()=>state.book.pages,disabled:()=>loading || restoringReading,navigate:index=>{
+  state.selected = null; returnQuote = ''; goToPage(index);
+}});
 for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).entries()) {
   leaf.tabIndex = 0;
   leaf.setAttribute('role', 'region');
   leaf.setAttribute('aria-label', `书籍${index === 0 ? '左' : '右'}页正文，可滚动阅读`);
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
-selectionExplorer=createSelectionExplorer({root:$('selection-explorer'),getPageKey:currentPage,collector:guideCollector,onSaved:result=>toast(result.alreadyExists?'已在收藏中，本次未覆盖原卡。':`已收藏「${result.plant.name}」，继续阅读吧。`)});
-bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),onLookup:async guide=>{
+selectionExplorer=createSelectionExplorer({root:$('selection-explorer'),getPageKey:currentPage,collector:guideCollector,getCollection:()=>collectedSpecies,onCollection:updateCollectedSpecies,onSaved:result=>toast(result.background?'已交给后台，可继续阅读；配图完成后会同步收藏。':result.alreadyExists?'已在收藏中，本次未覆盖原卡。':`已收藏「${result.plant.name}」，继续阅读吧。`)});
+const generationQueueView=createGenerationQueueView({root:$('generation-queue')});
+let shownQueueWarning='';
+selectionExplorer.subscribeTasks((tasks,connection)=>{generationQueueView.update(tasks);const warning=connection?.connectionWarning||'';if(warning&&warning!==shownQueueWarning)toast(warning);shownQueueWarning=warning;});
+void selectionExplorer.resumeTasks();
+bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),getRegenerationState:guide=>selectionExplorer.taskForGuide(guide),onRegenerate:async guide=>{
+  try{const task=await selectionExplorer.regenerateGuide(guide,pageContext(guide.quote));toast('已交给后台重新生成，原图暂时保留，可继续阅读。');return task;}
+  catch(error){toast(error.message||'重新生成暂未开始，请稍后重试。');throw error;}
+},onLookup:async guide=>{
   try {
     const result = await guideCollector.collect(guide,pageContext(guide.quote));
     toast(result.alreadyExists ? `「${guide.lookupName || guide.name}」已在收藏中` : `已收藏「${result.plant.name}」，继续阅读吧。`);
     return result;
   } catch (error) { toast(error.name === 'AbortError' ? '收藏响应较慢，请稍后重试。' : error.message || '暂时无法收藏，请稍后重试。'); throw error; }
 }});
+bookGuideView.setLimit(guideDensity.value);
+const guidePerimeter = createGuidePerimeter({stage:$('book-stage'),book:$('physical-book'),cards:$('book-guide-cards'),browse:$('browse-book-guides'),dialog:$('guide-density-dialog'),close:$('close-guide-density'),getSize:()=>guideSize.value,onLayout:()=>bookGuideView.schedule()});
 createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-fullscreen'),exitButton:$('exit-reader-fullscreen'),orientationButton:$('reader-orientation'),sizeSelect:$('reader-size'),onLayout:({active,orientationChanged})=>{
   const panel = $('reader-panel'); panel.classList.add('reader-layout-switch');
   bookGuideView.settleBookTransition();
+  guidePerimeter.schedule();
   (active ? panel : document.body).append($('toast'));
   requestAnimationFrame(()=>{ bookGuideView.schedule(); requestAnimationFrame(()=>panel.classList.remove('reader-layout-switch')); });
 }});
