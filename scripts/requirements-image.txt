@@ -1,0 +1,6 @@
+# Install matching CUDA PyTorch separately using https://pytorch.org/get-started/locally/
+transformers>=5.17
+accelerate
+pillow
+huggingface_hub
+git+https://github.com/huggingface/diffusers.git

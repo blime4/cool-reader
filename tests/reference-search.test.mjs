@@ -4,6 +4,23 @@ import {mkdtemp,rm,readdir} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {createServer} from '../server.mjs';
+import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {buildNameMatcher} from '../lib/reading-matcher.mjs';
+import {selectBookGuides} from '../dist/book-guides.mjs';
+
+test('ant words lead to a locally cached, attributed family representative without claiming species identification',async()=>{
+  const catalog=JSON.parse(await readFile(new URL('../dist/nature-catalog.json',import.meta.url),'utf8'));
+  const matches=buildNameMatcher(catalog.records)('蚂蚁在落叶上。');
+  const ant=matches[0].candidates.find(item=>item.scientificName==='Formicidae');
+  assert.ok(ant);assert.match(ant.imageUrl,/^\/plant-assets\/\d+\.jpg$/);
+  assert.match(ant.imageAttribution,/代表图/);assert.match(ant.matchNote,/不代表全部.*不能据此鉴定/);
+  const guides=selectBookGuides('蚂蚁在落叶上。',[],[ant]);assert.equal(guides[0].imageUrl,ant.imageUrl);
+  const credits=JSON.parse(await readFile(new URL('../dist/plant-assets/nature-photo-credits.json',import.meta.url),'utf8'));
+  const credit=credits.find(item=>'/plant-assets/'+item.file===ant.imageUrl);assert.ok(credit?.author&&credit?.license&&credit?.metadataUrl);
+  const bytes=await readFile(new URL('../dist'+ant.imageUrl,import.meta.url));assert.deepEqual(bytes.subarray(0,3),Buffer.from([255,216,255]));
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),credit.sha256);
+});
 test('moss, crow and golden-crowned kinglet queries return relevant sourced local JPEG references offline',async t=>{
   const dataDir=await mkdtemp(path.join(os.tmpdir(),'folio-references-'));let server;const originalFetch=globalThis.fetch;
   t.mock.method(globalThis,'fetch',async(url,options)=>{if(String(url).startsWith('http://127.0.0.1:'))return originalFetch(url,options);throw new Error('Live providers must not be required for these offline cases');});

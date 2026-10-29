@@ -1,6 +1,7 @@
 import {contextFromSearch,readingContext,readerLink,applyReadingToCard} from './reading-links.mjs';
 import {unverifiedNameCard,taxonomyPresentation,lookupWarning,findExistingNameCard,sortPhotoCandidates} from './collection-lookup-ui.mjs';
 import {createNatureImage,natureImageModel} from './nature-image-view.mjs';
+import {createGenerationAction} from './image-generation-action.mjs';
 const $ = id => document.getElementById(id);
 let incomingReading = contextFromSearch(location.search);
 const statuses = ['全部收藏', '想了解', '已认识', '待观察'];
@@ -8,7 +9,7 @@ const kindLabels = { all: '万物', plant: '植物', animal: '动物（含鸟类
 let kindFilter = 'all', lookupKind = 'all';
 const savedKind = item => ['plant', 'animal', 'bird', 'other'].includes(item.kind) ? item.kind : 'plant';
 const matchesKind = (item, kind) => kind === 'all' || savedKind(item) === kind || (kind === 'animal' && savedKind(item) === 'bird');
-let plants = [], filter = '全部收藏', query = '', candidate = null, editing = null, lookupVersion = 0, searchName = '', busy = false, toastTimer;
+let plants = [], filter = '全部收藏', query = '', candidate = null, editing = null, lookupVersion = 0, searchName = '', busy = false, toastTimer, editSession = 0;
 const dialogFocus = new Map();
 const node = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; return el; };
 function icon(name) { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); const use = document.createElementNS(svg.namespaceURI, 'use'); use.setAttribute('href', `#${name}`); svg.setAttribute('aria-hidden', 'true'); svg.append(use); return svg; }
@@ -124,6 +125,7 @@ function editPlant(plant, trigger, isNew = false, applyReading = false) {
   const provenance = applyReading && incomingReading.name && (incomingReading.bookId || incomingReading.sourceBook || incomingReading.quote) ? readingContext(incomingReading) : null;
   plant = provenance ? applyReadingToCard(plant,provenance,{isNew}) : plant;
   candidate = { ...plant }; editing = isNew ? null : plant.id; error('edit-error');
+  const session=++editSession;const draft=candidate;
   $('edit-title').textContent = editing ? '这个物种，与你的故事' : '留住这一次相遇'; $('edit-eyebrow').textContent = editing ? 'YOUR NATURE READING MEMORY' : 'A NEW LEAF IN YOUR COLLECTION';
   $('save-plant').replaceChildren(document.createTextNode(editing ? '保存这页记忆' : '加入我的万物收藏'), node('span', '', editing ? '✓' : '＋')); $('delete-plant').hidden = !editing;
   const values = { name: plant.name || '', kind: savedKind(plant), scientific: plant.scientificName || '', family: plant.family || '', genus: plant.genus || '', book: plant.sourceBook ?? '看不见的森林', chapter: plant.chapter || '', page: plant.page || '', notes: plant.notes || '', tags: (plant.tags || []).join('，'), status: plant.status || '想了解' };
@@ -145,6 +147,16 @@ function editPlant(plant, trigger, isNew = false, applyReading = false) {
   const returnUrl = readerLink(plant);
   if (returnUrl) { const link = node('a','reading-return','回到书中 · 重排阅读页 ↗'); link.href = returnUrl; details.append(link); }
   $('edit-specimen').append(photo, details); show('edit-dialog', trigger);
+  const offerGeneration=()=>{
+    if(details.querySelector('.image-generation-action'))return;
+    const generation=createGenerationAction({isCurrent:()=>editSession===session&&$('edit-dialog').open&&candidate===draft,getItem:()=>({...draft,name:$('edit-name').value.trim(),scientificName:$('edit-scientific').value.trim(),kind:$('edit-kind').value}),onGenerated:image=>{
+      if(editSession!==session||!$('edit-dialog').open||candidate!==draft)return;
+      Object.assign(draft,image);photo.replaceChildren(createNatureImage({...draft,...image}));
+      details.append(node('div','credit',image.imageAttribution));
+    }});details.append(generation);
+  };
+  if(!natureImageModel(plant).url)offerGeneration();
+  else photo.querySelector('img')?.addEventListener('error',offerGeneration,{once:true});
 }
 function tagsFromInput() { return [...new Set($('edit-tags').value.split(/[,，;；\n]+/u).map(tag => tag.trim()).filter(Boolean))]; }
 async function save(event) {

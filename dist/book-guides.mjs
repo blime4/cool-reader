@@ -6,7 +6,7 @@ function validName(value){return typeof value==='string'&&/^[\p{Script=Han}A-Za-
 function safeSource(value){if(typeof value!=='string'||value.length>2048)return '';try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
 function safeImage(value){
   if(typeof value!=='string'||value.length>2048)return '';
-  if(/^\/plant-images\/[0-9a-f-]{36}\.jpg$/.test(value)||/^\/plant-assets\/\d{1,15}\.jpg$/.test(value))return value;
+  if(/^\/(?:plant-images|generated-images)\/[0-9a-f-]{36}\.jpg$/.test(value)||/^\/plant-assets\/\d{1,15}\.jpg$/.test(value))return value;
   try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&IMAGE_HOSTS.has(url.hostname)?url.href:'';}catch{return '';}
 }
 function spans(text,name){

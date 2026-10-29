@@ -103,9 +103,9 @@
       "ant",
       "ants"
     ],
-    "description": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。",
-    "imageUrl": "",
-    "imageAttribution": "",
+    "description": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。 类群代表图：美国毛蚁 (Lasius americanus)，不代表全部蚂蚁，不能据此鉴定原书物种。",
+    "imageUrl": "/plant-assets/910000011.jpg",
+    "imageAttribution": "类群代表图：美国毛蚁 (Lasius americanus)，不代表全部蚂蚁，不能据此鉴定原书物种。 · solomon v. hendrix · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/145983726/medium.jpg",
     "taxonId": "",
     "family": "Formicidae",
     "genus": "",
@@ -114,12 +114,20 @@
     "sourceUrls": [
       "https://api.gbif.org/v1/species/4342/vernacularNames"
     ],
-    "matchNote": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。",
+    "matchNote": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。 类群代表图：美国毛蚁 (Lasius americanus)，不代表全部蚂蚁，不能据此鉴定原书物种。",
     "offline": true,
     "tags": [
       "待核对",
       "类群"
-    ]
+    ],
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "readingRepresentative": {
+      "literalName": "蚂蚁",
+      "name": "美国毛蚁",
+      "scientificName": "Lasius americanus",
+      "note": "类群代表图：美国毛蚁 (Lasius americanus)，不代表全部蚂蚁，不能据此鉴定原书物种。"
+    }
   },
   {
     "name": "麻雀属",

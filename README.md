@@ -68,6 +68,27 @@ Pages 只是启动入口，点击按钮通过已注册 folio-plants://start 启�
 
 ## 开发与检查
 
+### 可选：本地 Qwen 图像生成（Windows / CUDA）
+
+无实拍资料的卡片，在「核对并收藏」或编辑详情中提供「生成 AI 示意图」。这是独立的 Diffusers 服务，**不是 Ollama 模型**。Ollama Windows 当前不能承担这里的 Qwen-Image-2.1 推理。已存在的可靠实拍优先；生成由用户明确点击，图片只有保存卡片后才进入收藏，始终标为「AI 生成示意图 · 非实拍，不能用于物种鉴定」。不把示意图当作搜索证据或标准物种照片。
+
+依据 [Qwen 官方模型卡](https://huggingface.co/Qwen/Qwen-Image-2.1) 使用 `QwenImage21Pipeline`、BF16 与 CPU offload。7B 是视觉生成组件参数量，并不表示完整管线只占 14 GB；16 GB 显卡仍需大量主机内存。书引兜底使用 512×512、8 步的快速草图参数，生成结果只作为小卡片示意，不作为物种鉴定证据。默认不下载模型、不占用 GPU；模型使用 Qwen Research License，使用前查阅官方许可。
+
+在项目根目录用单独环境安装（以下操作手动执行，不会由网站触发）：
+
+```powershell
+python -m venv .venv-image
+# 先按 https://pytorch.org/get-started/locally/ 安装适合本机 CUDA 的 torch>=2.4
+.\.venv-image\Scripts\python.exe -m pip install -r scripts/requirements-image.txt
+# 明确下载完整模型，体积很大。此步骤不在普通启动流程内。
+.\.venv-image\Scripts\hf.exe download Qwen/Qwen-Image-2.1 --local-dir models/Qwen-Image-2.1
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start-image-worker.ps1 -ModelPath models/Qwen-Image-2.1
+```
+
+保留已有 `config.local.json` 字段，追加 `"imageGeneration":{"enabled":true,"port":4174}`，然后重启 Node 服务。访问 `/api/image-generation/health` 探活。未安装依赖、缺模型或服务未启动时会显示明确原因；探活不导入模型也不自动联网下载。生成始终 `local_files_only=True`，首次点击才加载。可用 `-PythonPath` 指定已有 Python 环境；`-Port` 须与配置一致。
+
+服务只监听 `127.0.0.1:4174`，用被 Git 忽略的 `data/image-worker.token` 验证 Node 请求。Node 校验 Host/Origin，任务每次最多一张、启动间隔至少 5 秒，图片上限 8 MiB、等待上限 30 分钟。超时后 Python 可能仍在计算，会拒绝新任务直到完成；需要时在服务终端按 Ctrl+C 结束。名称和学名留在本机，不发送书籍全文。生成记录在 `data/generated-images/`，Obsidian 保存时复制到管理附件。JSON 备份不含图片字节，迁移时同时复制图片目录或完整 Obsidian 管理目录。
+
     node --test tests/*.test.mjs
 
 - dist/：本地界面与原阅读工作台

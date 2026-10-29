@@ -25,8 +25,11 @@ async function get(url,binary=false){
   }throw last;
 }
 const plantTargets=[{id:163992,name:'Hypnum cupressiforme'},{id:56406,name:'Marchantia polymorpha'},{id:158429,name:'Anthoceros agrestis'},{id:62997,name:'Viburnum acerifolium',category:'shrub',readingTerms:['槭叶荚迷'],aliases:['maple-leaf viburnum','mapleleaf viburnum','maple leaf viburnum'],aliasSources:['https://plants.usda.gov/DocumentLibrary/plantguide/pdf/pg_viac.pdf','https://research.fs.usda.gov/feis/species-reviews/vibace','https://plants.ces.ncsu.edu/plants/viburnum-acerifolium/']}];
-const taxonIds=[311249,64615,56327,...plantTargets.map(item=>item.id)];
+const antTarget={id:966095,name:'Lasius americanus',family:'Formicidae'};
+const taxonIds=[311249,64615,56327,...plantTargets.map(item=>item.id),antTarget.id];
 const taxa=(await get(`https://api.inaturalist.org/v1/taxa/${taxonIds.join(',')}?locale=zh-CN`)).results;
+const antTaxon=taxa.find(item=>item.id===antTarget.id&&item.name===antTarget.name&&item.rank==='species');
+if(!antTaxon?.ancestors?.some(item=>item.rank==='family'&&item.name===antTarget.family))throw new Error('Representative ant identity or family mismatch');
 const birds=['Corvus cornix','Corvus corone','Corvus frugilegus','Corvus macrorhynchos','Corvus sinaloae','Regulus satrapa'];
 async function resolvePhoto(scientificName,plant){
   const existing=manifest.find(item=>item.scientificName===scientificName);
@@ -44,7 +47,7 @@ async function resolvePhoto(scientificName,plant){
   return {bytes,entry:{scientificName,sourceUrl,metadataUrl,author,license,imageSource,sha256:createHash('sha256').update(bytes).digest('hex')}};
 }
 // Finish every network request before writing any new files or manifests.
-const resolved=await Promise.all([...birds.map(name=>resolvePhoto(name)),...plantTargets.map(item=>resolvePhoto(item.name,item))]);
+const resolved=await Promise.all([...birds.map(name=>resolvePhoto(name)),...plantTargets.map(item=>resolvePhoto(item.name,item)),resolvePhoto(antTarget.name,antTarget)]);
 let nextNumber=910000001;
 for(const result of resolved){if(!result.bytes)continue;while(true){const file=`${nextNumber++}.jpg`;try{await stat(path.join(assets,file));}catch(error){if(error.code!=='ENOENT')throw error;result.entry.file=file;await writeFile(path.join(assets,file),result.bytes,{flag:'wx'});break;}}manifest.push(result.entry);}
 function credit(entry){return `${entry.author} · ${entry.license} · ${entry.imageSource} · ${entry.sourceUrl}`;}
@@ -64,8 +67,12 @@ for(const [id,scientificName,representative] of [[311249,'Bryophyta','Hypnum cup
 }
 const crow=groups.find(item=>item.scientificName==='Corvus');const crowPhoto=manifest.find(item=>item.scientificName==='Corvus corone');
 if(crow){const caution='类群代表图：小嘴乌鸦 (Corvus corone)，不代表全部成员；“乌鸦”不能据此确定为某一种。';Object.assign(crow,{imageUrl:`/plant-assets/${crowPhoto.file}`,imageLicense:crowPhoto.license,imageSource:crowPhoto.imageSource,imageAttribution:`${caution} · ${credit(crowPhoto)}`,description:crow.description.includes(caution)?crow.description:`${crow.description} ${caution}`,matchNote:crow.matchNote.includes(caution)?crow.matchNote:`${crow.matchNote} ${caution}`});}
+const ant=groups.find(item=>item.scientificName===antTarget.family);const antPhoto=manifest.find(item=>item.scientificName===antTarget.name);
+if(!ant)throw new Error('Ant family reference unavailable');
+const antCaution=`类群代表图：${antTaxon.preferred_common_name??antTarget.name} (${antTarget.name})，不代表全部蚂蚁，不能据此鉴定原书物种。`;
+Object.assign(ant,{imageUrl:`/plant-assets/${antPhoto.file}`,imageLicense:antPhoto.license,imageSource:antPhoto.imageSource,imageAttribution:`${antCaution} · ${credit(antPhoto)}`,readingRepresentative:{literalName:'蚂蚁',name:antTaxon.preferred_common_name??antTarget.name,scientificName:antTarget.name,note:antCaution},description:ant.description.includes(antCaution)?ant.description:`${ant.description} ${antCaution}`,matchNote:ant.matchNote.includes(antCaution)?ant.matchNote:`${ant.matchNote} ${antCaution}`});
 const mossNames=new Set(['Bryophyta','Marchantiophyta','Anthocerotophyta',...plantTargets.filter(item=>!item.category).map(item=>item.name)]);
 const orderedGroups=[...groups.filter(item=>!mossNames.has(item.scientificName)),...groups.filter(item=>mossNames.has(item.scientificName)&&item.taxonRank==='phylum'),...groups.filter(item=>mossNames.has(item.scientificName)&&item.taxonRank==='species')];
 await writeFile(manifestFile,JSON.stringify(manifest,null,2)+'\n');
 await writeFile(groupsFile,JSON.stringify(orderedGroups,null,2)+'\n');
-console.log(JSON.stringify({manifestPhotos:manifest.length,plantReferences:plantTargets.length,crowSpecies:birds.length,groups:groups.length}));
+console.log(JSON.stringify({manifestPhotos:manifest.length,plantReferences:plantTargets.length,crowSpecies:birds.length,antRepresentative:antTarget.name,groups:groups.length}));

@@ -9,6 +9,7 @@ import {searchPlantSources} from './lib/plant-search.mjs';
 import {openObsidianStore} from './lib/obsidian-store.mjs';
 import {openReadingLibrary} from './lib/reading-library.mjs';
 import {buildNameMatcher} from './lib/reading-matcher.mjs';
+import {openImageGeneration} from './lib/image-generation.mjs';
 const project=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(project,'dist');
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.wasm':'application/wasm','.bcmap':'application/octet-stream','.pfb':'application/octet-stream','.ttf':'font/ttf','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
@@ -19,9 +20,10 @@ async function body(req,max=2*1024*1024){
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>max)throw new ApiError(413,message);chunks.push(chunk);}
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new ApiError(400,'JSON 格式无效');}
 }
-export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志',readingBookPath,natureCatalogPath=path.join(root,'nature-catalog.json')}={}){
+export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志',readingBookPath,natureCatalogPath=path.join(root,'nature-catalog.json'),imageGeneration}={}){
   dataDir=path.resolve(dataDir);const store=obsidianVault?await openObsidianStore({vault:obsidianVault,folder:obsidianFolder,dataDir,staticDir:root}):await openStore(dataDir);
   const library=await openReadingLibrary({bookPath:readingBookPath,dataDir});
+  const generator=await openImageGeneration({dataDir,config:imageGeneration});
   let seeds=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
   try{
     const catalog=JSON.parse(await readFile(natureCatalogPath,'utf8'));const records=Array.isArray(catalog)?catalog:catalog.records;
@@ -37,6 +39,10 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)throw new ApiError(403,'不允许跨站访问本机资料');
       const url=new URL(req.url,`http://${req.headers.host}`);const method=req.method;
       if(url.pathname==='/api/health'&&method==='GET')return json(res,200,{app:'folio-plants',ok:true});
+      if(url.pathname==='/api/image-generation/health'&&method==='GET')return json(res,200,await generator.health());
+      if(url.pathname==='/api/image-generation/jobs'&&method==='POST')return json(res,202,{job:await generator.start(await body(req,4096))});
+      const generationJob=url.pathname.match(/^\/api\/image-generation\/jobs\/([a-f0-9-]{36})$/);
+      if(generationJob&&method==='GET')return json(res,200,{job:generator.get(generationJob[1])});
       if(url.pathname==='/api/reading-matches'&&method==='POST'){
         const input=await body(req,64*1024);return json(res,200,{matches:matchReadingPage(input?.text)});
       }
@@ -87,6 +93,11 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       }
       if(url.pathname.startsWith('/api/'))throw new ApiError(404,'接口不存在');
       if(method!=='GET'&&method!=='HEAD')throw new ApiError(405,'请求方法不受支持');
+      const generated=url.pathname.match(/^\/generated-images\/([a-f0-9-]{36})\.jpg$/);
+      if(generated){
+        const bytes=store.imageForUrl?await store.imageForUrl(url.pathname)??await generator.file(generated[1]):await generator.file(generated[1]);
+        res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'private, max-age=86400','X-Content-Type-Options':'nosniff'});return res.end(method==='HEAD'?undefined:bytes);
+      }
       let file;let mime;
       if(store.imageForUrl&&(/^\/plant-assets\/\d{1,15}\.jpg$/.test(url.pathname)||/^\/plant-images\/[0-9a-f-]{36}\.jpg$/.test(url.pathname))){
         const bytes=await store.imageForUrl(url.pathname);

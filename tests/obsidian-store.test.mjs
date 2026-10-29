@@ -31,6 +31,16 @@ test('copies local photos and preserves corrupt managed cards without silently e
     await writeFile(file,'---\nfolioPlant: 1\nname: [broken\n---\n');await assert.rejects(store.list(),/损坏|格式/);assert.equal(await readFile(file,'utf8'),'---\nfolioPlant: 1\nname: [broken\n---\n');
   }finally{await rm(f.base,{recursive:true,force:true});}
 });
+test('replacing an old photo with an AI illustration publishes a new attachment and preserves old bytes after restart',async()=>{
+  const f=await fixture();const item={...plant(),imageUrl:'/plant-assets/123.jpg'};const original=Buffer.from([255,216,255,224,1]);const generated=Buffer.from([255,216,255,224,2]);const id=randomUUID();await mkdir(path.join(f.options.staticDir,'plant-assets'),{recursive:true});await writeFile(path.join(f.options.staticDir,'plant-assets','123.jpg'),original);await mkdir(path.join(f.dataDir,'generated-images'));await writeFile(path.join(f.dataDir,'generated-images',id+'.jpg'),generated);
+  try{
+    let store=await openObsidianStore(f.options);await store.mutate(next=>next.push(item));const file=await cardFile(f,item.id);const before=await readFile(file,'utf8');const previousAttachment=JSON.parse(before.match(/^attachment: (.+)$/m)[1]);
+    await store.mutate(next=>{next[0].imageUrl='/generated-images/'+id+'.jpg';});const after=await readFile(file,'utf8');const attachment=JSON.parse(after.match(/^attachment: (.+)$/m)[1]);assert.notEqual(attachment,previousAttachment);assert.ok(after.includes('(../附件/'+attachment+')'));assert.ok(!after.includes('(../附件/'+previousAttachment+')'));assert.ok(after.includes('AI 生成示意图'));
+    const images=path.join(f.vault,f.options.folder,'附件');assert.deepEqual(await readFile(path.join(images,previousAttachment)),original);assert.deepEqual(await readFile(path.join(images,attachment)),generated);
+    store=await openObsidianStore(f.options);assert.deepEqual(await store.imageForUrl('/generated-images/'+id+'.jpg'),generated);assert.equal((await store.list())[0].imageKind,'generated');assert.equal((await store.list())[0].notes,item.notes);
+    const snapshots=await readdir(path.join(f.vault,f.options.folder,'快照'));assert.ok(snapshots.length>0);await store.mutate(next=>{next[0].imageUrl='';});assert.ok(!(await readFile(file,'utf8')).includes('attachment:'));
+  }finally{await rm(f.base,{recursive:true,force:true});}
+});
 test('rejects folder traversal and folders outside an Obsidian vault',async()=>{
   const f=await fixture();try{await assert.rejects(openObsidianStore({...f.options,folder:'../outside'}));await assert.rejects(openObsidianStore({...f.options,vault:f.dataDir}));}finally{await rm(f.base,{recursive:true,force:true});}
 });

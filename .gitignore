@@ -6,4 +6,7 @@ outputs/
 
 config.local.json
 *.local.json
+.venv-image/
+models/
+__pycache__/
 
