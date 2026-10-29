@@ -1,6 +1,6 @@
 import {contextFromSearch,readingContext,readerLink,applyReadingToCard} from './reading-links.mjs';
-import {unverifiedNameCard,taxonomyPresentation,lookupWarning,findExistingNameCard} from './collection-lookup-ui.mjs';
-import {createNatureImage} from './nature-image-view.mjs';
+import {unverifiedNameCard,taxonomyPresentation,lookupWarning,findExistingNameCard,sortPhotoCandidates} from './collection-lookup-ui.mjs';
+import {createNatureImage,natureImageModel} from './nature-image-view.mjs';
 const $ = id => document.getElementById(id);
 let incomingReading = contextFromSearch(location.search);
 const statuses = ['全部收藏', '想了解', '已认识', '待观察'];
@@ -79,8 +79,12 @@ async function lookup(name) {
   name = name.trim(); if (!name) { $('plant-query').focus(); return; }
   lookupKind = $('lookup-kind').value;
   const version = ++lookupVersion; searchName = name; $('plant-query').value = name; $('search-subtitle').textContent = `寻找「${name}」的资料。可以核对物种或类群，也可以先把名字留下。`; $('candidate-list').replaceChildren(keepNameEntry(name)); $('search-loading').hidden = false; error('search-error'); $('search-warning').hidden = true; show('search-dialog', $('plant-query'));
-  try { const data = await api(`/api/search?q=${encodeURIComponent(name)}&kind=${encodeURIComponent(lookupKind)}`); if (version !== lookupVersion || !$('search-dialog').open) return; const results = Array.isArray(data.results) ? data.results : [];
+  try { const data = await api(`/api/search?q=${encodeURIComponent(name)}&kind=${encodeURIComponent(lookupKind)}`); if (version !== lookupVersion || !$('search-dialog').open) return; const results = sortPhotoCandidates(Array.isArray(data.results) ? data.results : []);
     $('candidate-list').replaceChildren();
+    if (results.length) {
+      const photoCount = results.filter(item=>natureImageModel(item).url).length;
+      $('search-subtitle').textContent = `找到 ${results.length} 条资料，${photoCount ? `${photoCount} 条已提供参考照片，带图候选优先显示` : '暂未提供可用照片，无图项显示名称封面'}。类群代表照片不能确认具体物种。`;
+    }
     const warning = lookupWarning(data,results);
     if (warning) { $('search-warning').textContent = warning; $('search-warning').title = typeof data.warning === 'string' ? data.warning : ''; $('search-warning').hidden = false; }
     if (!results.length) { $('candidate-list').append(keepNameEntry(name)); const empty = node('div', 'candidate-empty'); empty.append(node('p', '', '暂未找到可靠资料也能收藏。之后可以补充别名、学名或照片；现在无需更换名称重试。')); $('candidate-list').append(empty); }

@@ -11,7 +11,8 @@ export function natureImageModel(item = {}) {
   if (/^\/plant-assets\/\d{1,15}\.jpg$/.test(value) || /^\/plant-images\/[0-9a-f-]{36}\.jpg$/.test(value)) url = value;
   else try { const parsed = new URL(value); if (parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port && HOSTS.has(parsed.hostname)) url = parsed.href; } catch {}
   const kind = Object.hasOwn(SHAPES,item.kind) ? item.kind : 'other';
-  return {name:String(item.name || '未命名记录').slice(0,120),kind,url,paths:SHAPES[kind],caption:'名称封面 · 待补实拍'};
+  const higher = ['genus','subgenus','family','subfamily','tribe','order','suborder','class','phylum','kingdom'].includes(String(item.taxonRank || '').toLocaleLowerCase());
+  return {name:String(item.name || '未命名记录').slice(0,120),kind,url,paths:SHAPES[kind],caption:'名称封面 · 待补实拍',photoLabel:higher ? '类群代表照片' : '资料参考照片'};
 }
 export function createNatureImage(item, {timeoutMs = 10000,onStateChange = () => {}} = {}) {
   const model = natureImageModel(item);
@@ -20,15 +21,21 @@ export function createNatureImage(item, {timeoutMs = 10000,onStateChange = () =>
   const drawing = document.createElementNS('http://www.w3.org/2000/svg','svg'); drawing.setAttribute('viewBox','0 0 130 165'); drawing.setAttribute('aria-hidden','true'); drawing.setAttribute('class','nature-cover-drawing');
   for (const value of model.paths) { const path = document.createElementNS(drawing.namespaceURI || 'http://www.w3.org/2000/svg','path'); path.setAttribute('d',value); drawing.append(path); }
   const name = document.createElement('strong'); name.textContent = model.name;
-  const caption = document.createElement('span'); caption.textContent = model.caption;
+  const caption = document.createElement('span'); caption.textContent = model.url ? '参考照片载入中 · 当前为名称封面' : model.caption;
   cover.append(drawing,name,caption); root.append(cover);
   if (!model.url) return root;
   const image = document.createElement('img'); image.className = 'nature-real-photo'; image.alt = `${model.name}的资料参考图，名称对应关系需核对`; image.referrerPolicy = 'no-referrer'; image.loading = 'lazy';
+  const status = document.createElement('span'); status.className = 'nature-photo-status'; status.textContent = '照片载入中';
   let timer, failed = false;
-  const update = value => { root.dataset.imageState = value; cover.setAttribute('aria-hidden',value === 'photo' ? 'true' : 'false'); onStateChange(value); };
+  const update = value => {
+    root.dataset.imageState = value; cover.setAttribute('aria-hidden',value === 'photo' ? 'true' : 'false');
+    status.textContent = value === 'photo' ? model.photoLabel : value === 'error' ? '照片未载入' : '照片响应较慢';
+    if (value !== 'photo') caption.textContent = value === 'error' ? '照片载入失败 · 当前为名称封面' : '照片响应较慢 · 当前为名称封面';
+    onStateChange(value);
+  };
   image.addEventListener('load',()=>{ if (failed || root.dataset.imageState === 'photo') return; clearTimeout(timer); update('photo'); });
   image.addEventListener('error',()=>{ if (failed) return; failed = true; clearTimeout(timer); image.hidden = true; update('error'); },{once:true});
   if (timeoutMs > 0) timer = setTimeout(()=>update('timeout'),timeoutMs);
-  image.src = model.url; root.append(image);
+  image.src = model.url; root.append(image,status);
   return root;
 }

@@ -98,5 +98,95 @@
     "license": "cc-by-nc",
     "imageSource": "Avicommons",
     "sha256": "0aeaa13a97c94509c770b0cc7dfb8f0a15cf343dcd036f0d37ba0207fd1d85c9"
+  },
+  {
+    "scientificName": "Corvus cornix",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/114176979/medium.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Corvus%20cornix",
+    "author": "hedera.baltica",
+    "license": "cc-by-sa",
+    "imageSource": "iNaturalist",
+    "sha256": "f164df15f98187a7020a342ab31d5e7652c345662df867a3628e99e59aa7976d",
+    "file": "910000001.jpg"
+  },
+  {
+    "scientificName": "Corvus corone",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/451700759/medium.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Corvus%20corone",
+    "author": "Eidiu",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "ab3748eb7311383bb3eb2dd6355555d279fb9f5e31aa69fbb18c8eb0e6726146",
+    "file": "910000002.jpg"
+  },
+  {
+    "scientificName": "Corvus frugilegus",
+    "sourceUrl": "https://static.avicommons.org/rook1-RVDSCBLJvAumVuXX-900.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Corvus%20frugilegus",
+    "author": "Brian Snelson",
+    "license": "cc-by-2.0",
+    "imageSource": "Avicommons",
+    "sha256": "3c0dec47b1277999d91df1676cdef345d98a2d18a0fbc457e210a5387d7a31a1",
+    "file": "910000003.jpg"
+  },
+  {
+    "scientificName": "Corvus macrorhynchos",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/102902467/medium.jpeg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Corvus%20macrorhynchos",
+    "author": "Joe Bourget",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "2ca4f862d262e35c4a17678b3e5ab539f2ae1d96ed6c0e7b58a9866a6bdcda03",
+    "file": "910000004.jpg"
+  },
+  {
+    "scientificName": "Corvus sinaloae",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/184087708/medium.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Corvus%20sinaloae",
+    "author": "Ad Konings",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "5bec3683565231a7e4788177c10a632ddb34f9531963bd01915074636fdac805",
+    "file": "910000005.jpg"
+  },
+  {
+    "scientificName": "Regulus satrapa",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/59391481/medium.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Regulus%20satrapa",
+    "author": "Nick Tepper",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "fe501f1a6a9fd155ded0a9837a2792c9da98f8e4995910ecb64543f7a099fc51",
+    "file": "910000006.jpg"
+  },
+  {
+    "scientificName": "Hypnum cupressiforme",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/436460876/medium.jpeg",
+    "metadataUrl": "https://api.inaturalist.org/v1/taxa/163992",
+    "author": "t_tully",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "da1b73c4b19df9d526d9e158c2ef84a80cfe390142fa598e0c01764de1900f9b",
+    "file": "910000007.jpg"
+  },
+  {
+    "scientificName": "Marchantia polymorpha",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/41657910/medium.jpeg",
+    "metadataUrl": "https://api.inaturalist.org/v1/taxa/56406",
+    "author": "Bernd Bäumler",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "7356c2b8c837a5e23fa550263313281d49ec7e9ceb4fe4da2b0fbb3b1ba412d2",
+    "file": "910000008.jpg"
+  },
+  {
+    "scientificName": "Anthoceros agrestis",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/331616138/medium.jpeg",
+    "metadataUrl": "https://api.inaturalist.org/v1/taxa/158429",
+    "author": "martina_poeltl",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "2d024596f8550d610ebf55d599e044064b44fdf84a2880dcd91669019e660f95",
+    "file": "910000009.jpg"
   }
 ]

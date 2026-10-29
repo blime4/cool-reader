@@ -1,3 +1,8 @@
+import {natureImageModel} from './nature-image-view.mjs';
+
+export function sortPhotoCandidates(results) {
+  return results.map((item,index)=>({item,index,photo:Boolean(natureImageModel(item).url)})).sort((a,b)=>Number(b.photo)-Number(a.photo)||a.index-b.index).map(entry=>entry.item);
+}
 export function unverifiedNameCard(name,scope = 'all') {
   return {name:String(name || '').trim().slice(0,120),kind:['plant','animal','bird'].includes(scope) ? scope : 'other',scientificName:'',family:'',genus:'',taxonId:'',imageUrl:'',sourceUrl:'',sourceBook:'',sourceLabel:'名称待核对 · 手动收纳',description:'按原名称先行收纳，暂无可靠分类资料。学名、具体类群和图片均待核对。',notes:'按名称先行收纳，尚未确认具体分类、学名或图片。',tags:['待核对'],status:'想了解'};
 }

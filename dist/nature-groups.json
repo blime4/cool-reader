@@ -165,9 +165,9 @@
       "raven",
       "ravens"
     ],
-    "description": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。",
-    "imageUrl": "",
-    "imageAttribution": "",
+    "description": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。 类群代表图：小嘴乌鸦 (Corvus corone)，不代表全部成员；“乌鸦”不能据此确定为某一种。",
+    "imageUrl": "/plant-assets/910000002.jpg",
+    "imageAttribution": "类群代表图：小嘴乌鸦 (Corvus corone)，不代表全部成员；“乌鸦”不能据此确定为某一种。 · Eidiu · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/451700759/medium.jpg",
     "taxonId": "",
     "family": "",
     "genus": "Corvus",
@@ -176,12 +176,14 @@
     "sourceUrls": [
       "https://api.gbif.org/v1/species/2482468/vernacularNames"
     ],
-    "matchNote": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。",
+    "matchNote": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。 类群代表图：小嘴乌鸦 (Corvus corone)，不代表全部成员；“乌鸦”不能据此确定为某一种。",
     "offline": true,
     "tags": [
       "待核对",
       "类群"
-    ]
+    ],
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist"
   },
   {
     "name": "枫树",
@@ -274,5 +276,155 @@
       "待核对",
       "参考种"
     ]
+  },
+  {
+    "name": "真藓门",
+    "scientificName": "Bryophyta",
+    "taxonRank": "phylum",
+    "kind": "plant",
+    "taxonId": "311249",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓类群"
+    ],
+    "sourceLabel": "iNaturalist 离线类群参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/311249",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/311249"
+    ],
+    "imageUrl": "/plant-assets/910000007.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "类群代表图：灰藓 (Hypnum cupressiforme) · t_tully · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/436460876/medium.jpeg",
+    "description": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳真藓门，门级类群，并非一种物种。类群代表图：灰藓 (Hypnum cupressiforme)，不代表全部成员。",
+    "matchNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳真藓门，门级类群，并非一种物种。类群代表图：灰藓 (Hypnum cupressiforme)，不代表全部成员。",
+    "offline": true
+  },
+  {
+    "name": "地钱门",
+    "scientificName": "Marchantiophyta",
+    "taxonRank": "phylum",
+    "kind": "plant",
+    "taxonId": "64615",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓类群"
+    ],
+    "sourceLabel": "iNaturalist 离线类群参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/64615",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/64615"
+    ],
+    "imageUrl": "/plant-assets/910000008.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "类群代表图：地钱 (Marchantia polymorpha) · Bernd Bäumler · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/41657910/medium.jpeg",
+    "description": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳地钱门，门级类群，并非一种物种。类群代表图：地钱 (Marchantia polymorpha)，不代表全部成员。",
+    "matchNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳地钱门，门级类群，并非一种物种。类群代表图：地钱 (Marchantia polymorpha)，不代表全部成员。",
+    "offline": true
+  },
+  {
+    "name": "角苔门",
+    "scientificName": "Anthocerotophyta",
+    "taxonRank": "phylum",
+    "kind": "plant",
+    "taxonId": "56327",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓类群"
+    ],
+    "sourceLabel": "iNaturalist 离线类群参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/56327",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/56327"
+    ],
+    "imageUrl": "/plant-assets/910000009.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "类群代表图：Anthoceros agrestis (Anthoceros agrestis) · martina_poeltl · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/331616138/medium.jpeg",
+    "description": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳角苔门，门级类群，并非一种物种。类群代表图：Anthoceros agrestis (Anthoceros agrestis)，不代表全部成员。",
+    "matchNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳角苔门，门级类群，并非一种物种。类群代表图：Anthoceros agrestis (Anthoceros agrestis)，不代表全部成员。",
+    "offline": true
+  },
+  {
+    "name": "灰藓",
+    "scientificName": "Hypnum cupressiforme",
+    "taxonRank": "species",
+    "kind": "plant",
+    "taxonId": "163992",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓代表种"
+    ],
+    "family": "Hypnaceae",
+    "genus": "Hypnum",
+    "sourceLabel": "iNaturalist 离线植物参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/163992",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/163992"
+    ],
+    "imageUrl": "/plant-assets/910000007.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "t_tully · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/436460876/medium.jpeg",
+    "description": "这是苔藓相关类群中的具体代表种，不能据书中“苔藓”一词确定该种。",
+    "matchNote": "具体代表种供比较；不是“苔藓”的同义词或原书身份鉴定。",
+    "offline": true
+  },
+  {
+    "name": "地钱",
+    "scientificName": "Marchantia polymorpha",
+    "taxonRank": "species",
+    "kind": "plant",
+    "taxonId": "56406",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓代表种"
+    ],
+    "family": "Marchantiaceae",
+    "genus": "Marchantia",
+    "sourceLabel": "iNaturalist 离线植物参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/56406",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/56406"
+    ],
+    "imageUrl": "/plant-assets/910000008.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "Bernd Bäumler · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/41657910/medium.jpeg",
+    "description": "这是苔藓相关类群中的具体代表种，不能据书中“苔藓”一词确定该种。",
+    "matchNote": "具体代表种供比较；不是“苔藓”的同义词或原书身份鉴定。",
+    "offline": true
+  },
+  {
+    "name": "Anthoceros agrestis",
+    "scientificName": "Anthoceros agrestis",
+    "taxonRank": "species",
+    "kind": "plant",
+    "taxonId": "158429",
+    "aliases": [],
+    "tags": [
+      "苔藓",
+      "苔藓代表种"
+    ],
+    "family": "Anthocerotaceae",
+    "genus": "Anthoceros",
+    "sourceLabel": "iNaturalist 离线植物参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/158429",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/158429"
+    ],
+    "imageUrl": "/plant-assets/910000009.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "martina_poeltl · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/331616138/medium.jpeg",
+    "description": "这是苔藓相关类群中的具体代表种，不能据书中“苔藓”一词确定该种。",
+    "matchNote": "具体代表种供比较；不是“苔藓”的同义词或原书身份鉴定。",
+    "offline": true
   }
 ]

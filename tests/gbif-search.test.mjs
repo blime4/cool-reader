@@ -51,3 +51,16 @@ test('merging other source evidence retains GBIF family rank and group caution',
   const providers={wiki:async()=>[{name:'啄木鸟科',scientificName:'Picidae',kind:'bird',sourceUrl:'https://zh.wikipedia.org/wiki/啄木鸟科'}],gbif:async()=>[{name:'Picidae',scientificName:'Picidae',kind:'bird',taxonRank:'family',matchNote:'科级类群，并非一种物种。',sourceUrl:'https://www.gbif.org/species/9333'}]};
   const result=await searchPlantSources('merge-family-rank',{providers,kind:'bird',cache:false});assert.equal(result.results.length,1);assert.equal(result.results[0].taxonRank,'family');assert.match(result.results[0].matchNote,/科级类群.*并非/);
 });
+test('offline broad candidates prefer usable photos while exact identity stays first',async()=>{
+  const records=[{name:'乌鸦',scientificName:'Corvus',kind:'bird',taxonRank:'genus',offline:true},...Array.from({length:7},(_,i)=>({name:`测试乌鸦 ${i}`,scientificName:`Corvus test${i}`,kind:'bird',offline:true,imageUrl:i===6?'/plant-assets/999000001.jpg':''}))];
+  const result=await searchPlantSources('乌鸦',{kind:'bird',localSeeds:records,providers:{},cache:false});assert.equal(result.results[0].scientificName,'Corvus');assert.equal(result.results[1].imageUrl,'/plant-assets/999000001.jpg');assert.equal(result.results[1].matchType,'candidate');
+});
+test('plant phylum ranks remain higher groups rather than being dropped or saved as species',async t=>{
+  assert.equal(validatePlant({name:'真藓门',kind:'plant',taxonRank:'phylum'}).taxonRank,'phylum');
+  t.mock.method(globalThis,'fetch',async url=>{if(url.pathname!=='/v1/taxa/autocomplete')throw new Error('details unavailable');return Response.json({results:[{id:311249,name:'Bryophyta',rank:'phylum',preferred_common_name:'真藓门',iconic_taxon_name:'Plantae'}]});});
+  const [taxon]=await remoteSearch('Bryophyta',{kind:'plant'});assert.equal(taxon.taxonRank,'phylum');assert.match(taxon.matchNote,/门级类群.*并非一种/);
+});
+test('bird suffix variants require an exact recorded bird stem and remain candidates rather than declared aliases',async()=>{
+  const records=[{name:'金冠戴菊',scientificName:'Regulus satrapa',kind:'bird',offline:true,imageUrl:'/plant-assets/999000002.jpg'},{name:'戴菊',scientificName:'Regulus regulus',kind:'bird',offline:true},{name:'金冠戴菊',scientificName:'Imaginary plant',kind:'plant',offline:true}];
+  const result=await searchPlantSources('金冠戴菊鸟',{kind:'all',localSeeds:records,providers:{},cache:false});assert.equal(result.results.length,1);assert.equal(result.results[0].scientificName,'Regulus satrapa');assert.equal(result.results[0].matchType,'candidate');assert.match(result.results[0].matchNote,/并非已确认别名/);
+});
