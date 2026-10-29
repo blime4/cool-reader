@@ -7,6 +7,7 @@ import {captureReadingSelection,readingPageMatches,readingLookupName} from './re
 import {createReaderFullscreen} from './reader-fullscreen.mjs';
 import {createReaderTypography} from './reader-typography.mjs';
 import {createGuideCollector,findCollectedGuide} from './guide-collection.mjs';
+import {createSelectionExplorer,selectionExplorerName,sameExplorerSelection} from './selection-explorer.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -30,6 +31,7 @@ const pageReadingMatches = new WeakMap();
 const readingMatchFailures = new WeakSet();
 const noReadingMatches = [];
 let pendingMatchPage, matchController, selectedReading, selectedReadingPage;
+let selectionExplorer, selectionExplorerTimer;
 const guideCollector = createGuideCollector({
   getCollection:()=>collectedSpecies,
   onCollection:next=>{
@@ -109,6 +111,7 @@ function clearFilters() {
 }
 
 function setBook(book, demo = false, bookId = '') {
+  clearSelectionExplorer();
   const wasClosed = state.closed;
   pageMotion.reset(0);
   disposeTurn();
@@ -202,7 +205,7 @@ function guidesForPage(index) {
 function renderBook() {
   const page = currentPage();
   if (!page) return;
-  if (selectedReadingPage !== page) { selectedReading = null; selectedReadingPage = page; updateSelectionActions(); }
+  if (selectedReadingPage !== page) { clearSelectionExplorer(); selectedReading = null; selectedReadingPage = page; updateSelectionActions(); }
   const chapter = chapterById(page.chapterId);
   const text = page.text;
   const {left,right,selectedText} = pageParts(state.pageIndex);
@@ -235,6 +238,7 @@ function renderBook() {
 }
 
 function goToPage(index, animate = true) {
+  clearSelectionExplorer();
   const wasClosed = state.closed;
   if (wasClosed) toggleBook();
   pageMotion.request(index,{animate:animate && !wasClosed});
@@ -588,19 +592,22 @@ function readCurrentSelection() {
   const selection = window.getSelection();
   const element = value => value?.nodeType === 1 ? value : value?.parentElement;
   const inside = Boolean(element(selection?.anchorNode)?.closest('#source-copy,#page-left,#page-right') && element(selection?.focusNode)?.closest('#source-copy,#page-left,#page-right'));
-  return captureReadingSelection(currentPage(),selection?.toString(),inside);
+  const captured=captureReadingSelection(currentPage(),selection?.toString(),inside);
+  return captured?{...captured,anchorNode:selection.anchorNode,anchorOffset:selection.anchorOffset,focusNode:selection.focusNode,focusOffset:selection.focusOffset}:null;
 }
 
 function updateSelectionActions() {
   const value = selectedReadingPage === currentPage() ? selectedReading : null;
-  const name = value?.name || '';
+  const name = selectionExplorerName(value?.quote) || value?.name || '';
   const lookupName = name ? readingLookupName(name,pageReadingMatches.get(currentPage()) || noReadingMatches) : '';
   for (const prefix of ['reader','source']) {
     $(`${prefix}-selection-actions`).hidden = !value;
     $(`${prefix}-selection-label`).textContent = value ? name ? `已选原文「${name}」${lookupName !== name ? `；可能指「${lookupName}」，请核对` : ''}` : '已选一段原文，请先确认其中的物种名称。' : '';
-    $(`${prefix}-selection-lookup`).textContent = name ? `查找「${lookupName}」图片 ↗` : '填写物种名称 ↗';
+    $(`${prefix}-selection-lookup`).textContent = name ? `原地探索「${lookupName}」` : '填写物种名称';
   }
 }
+
+function clearSelectionExplorer(){clearTimeout(selectionExplorerTimer);selectionExplorer?.invalidate();}
 
 function refreshReadingGuides() {
   const page = currentPage();
@@ -794,20 +801,31 @@ $('capture-encounter').addEventListener('click',captureEncounter);
 $('capture-source').addEventListener('click',captureEncounter);
 document.addEventListener('selectionchange',()=>{
   const captured = readCurrentSelection();
-  if (captured) { selectedReading = captured; selectedReadingPage = currentPage(); }
-  else if (window.getSelection()?.toString().trim()) selectedReading = null;
+  if(captured&&selectedReadingPage===currentPage()&&sameExplorerSelection(selectedReading,captured)){updateSelectionActions();return;}
+  if (captured) {
+    selectedReading = captured; selectedReadingPage = currentPage();clearSelectionExplorer();
+    const name=selectionExplorerName(captured.quote),pageKey=currentPage(),context=pageContext(captured.quote);
+    if(name&&!pageMotion.busy)selectionExplorerTimer=setTimeout(()=>{
+      if(selectedReading!==captured||currentPage()!==pageKey||pageMotion.busy)return;
+      if($('source-dialog').open)closeDialog('source-dialog');
+      void selectionExplorer?.open({text:name,context,pageKey});
+    },350);
+  }
+  else if (window.getSelection()?.toString().trim()) {selectedReading = null;clearSelectionExplorer();}
   updateSelectionActions();
 });
 for (const prefix of ['reader','source']) {
   $(`${prefix}-selection-lookup`).addEventListener('click',()=>{
     if (!selectedReading || selectedReadingPage !== currentPage()) return;
-    if (!selectedReading.name) { captureEncounter(); return; }
-    const name = readingLookupName(selectedReading.name,pageReadingMatches.get(currentPage()) || noReadingMatches);
-    location.href = collectionLink(name,pageContext(selectedReading.quote));
+    const name=selectionExplorerName(selectedReading.quote)||selectionExplorerName(selectedReading.name);
+    if(!name){captureEncounter();return;}
+    clearTimeout(selectionExplorerTimer);
+    if($('source-dialog').open)closeDialog('source-dialog');
+    void selectionExplorer?.open({text:name,context:pageContext(selectedReading.quote),pageKey:currentPage()});
   });
-  $(`${prefix}-selection-clear`).addEventListener('click',()=>{ selectedReading = null; window.getSelection()?.removeAllRanges(); updateSelectionActions(); refreshReadingGuides(); });
+  $(`${prefix}-selection-clear`).addEventListener('click',()=>{ clearSelectionExplorer();selectedReading = null; window.getSelection()?.removeAllRanges(); updateSelectionActions(); refreshReadingGuides(); });
 }
-$('encounter-form').addEventListener('submit',event=>{ event.preventDefault(); const name = $('encounter-name').value.trim(); if (name) location.href = collectionLink(name,pageContext(encounterQuote)); });
+$('encounter-form').addEventListener('submit',event=>{event.preventDefault();const name=selectionExplorerName($('encounter-name').value);if(!name){toast('请输入 2 至 40 个字符的短名称，再继续探索。');return;}const context=pageContext(encounterQuote),pageKey=currentPage();closeDialog('encounter-dialog');void selectionExplorer?.open({text:name,context,pageKey});});
 $('read-source').addEventListener('click', () => {
   openDialog('source-dialog', $('read-source'));
   setHighlightedText($('source-copy'), currentPage()?.text ?? '', pageParts(state.pageIndex).selectedText);
@@ -876,6 +894,7 @@ for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).
   leaf.setAttribute('aria-label', `书籍${index === 0 ? '左' : '右'}页正文，可滚动阅读`);
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
+selectionExplorer=createSelectionExplorer({root:$('selection-explorer'),getPageKey:currentPage,collector:guideCollector,onSaved:result=>toast(result.alreadyExists?'已在收藏中，本次未覆盖原卡。':`已收藏「${result.plant.name}」，继续阅读吧。`)});
 bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),onLookup:async guide=>{
   try {
     const result = await guideCollector.collect(guide,pageContext(guide.quote));

@@ -1,0 +1,124 @@
+import {readingContext} from './reading-links.mjs';
+import {unverifiedNameCard,sortPhotoCandidates,taxonomyPresentation} from './collection-lookup-ui.mjs';
+import {createNatureImage,natureImageModel} from './nature-image-view.mjs';
+import {createGenerationAction} from './image-generation-action.mjs';
+
+export function selectionExplorerName(value){
+  if(typeof value!=='string')return '';
+  const name=value.trim(),length=[...name].length;
+  return length>=2&&length<=40&&/\p{L}/u.test(name)&&!/[\u0000-\u001f\u007f]/u.test(name)?name:'';
+}
+export function sameExplorerSelection(previous,next){
+  return Boolean(previous&&next&&previous.anchorNode&&previous.focusNode&&previous.quote===next.quote&&previous.anchorNode===next.anchorNode&&previous.focusNode===next.focusNode&&previous.anchorOffset===next.anchorOffset&&previous.focusOffset===next.focusOffset);
+}
+const genericNameParts=new Set(['植物','动物','動物','生物','物种','物種','鸟类','鳥類','菌类','菌類','树木','樹木','类群','類群','林地','森林','野生','普通','常见','常見']);
+const genericEnglishParts=new Set(['plant','plants','animal','animals','bird','birds','tree','trees','species','genus','family','wild','common','woodland','forest','leaf','leaves','red','blue','green','white','black','brown','yellow','large','small']);
+function nameParts(value){
+  const name=typeof value==='string'?value.normalize('NFKC').toLocaleLowerCase().trim():'';
+  const parts=new Set((name.match(/[a-z]{3,}/g)||[]).filter(part=>!genericEnglishParts.has(part)));
+  for(const group of name.match(/[\p{Script=Han}]+/gu)||[]){
+    const chars=[...group.replace(/[属屬科门門纲綱目种種類类]+$/u,'')];
+    for(let index=0;index+1<chars.length;index++){const part=chars[index]+chars[index+1];if(!genericNameParts.has(part))parts.add(part);}
+  }
+  return {name,parts};
+}
+function relevantCandidate(query,item){
+  // Older/local callers without match metadata keep their existing behavior. Explicit fuzzy
+  // provider results must earn relevance; a photograph never upgrades a name match.
+  if(!item.matchType||['exact','alias'].includes(item.matchType))return true;
+  const needle=nameParts(query);
+  const names=[item.name,item.scientificName,item.matchedTerm,...(Array.isArray(item.aliases)?item.aliases:[]),...(Array.isArray(item.readingTerms)?item.readingTerms:[])];
+  return names.some(value=>{const candidate=nameParts(value);return Boolean(candidate.name&&(candidate.name===needle.name||[...candidate.parts].some(part=>needle.parts.has(part))));});
+}
+const node=(tag,className,text)=>{const value=document.createElement(tag);value.className=className;if(text!==undefined)value.textContent=text;return value;};
+const action=(text,name,callback)=>{const button=node('button','selection-explorer-button',text);button.type='button';button.dataset.action=name;button.addEventListener('click',callback);return button;};
+
+export function createSelectionExplorer({root,getPageKey,collector,request=fetch,createGeneration=createGenerationAction,createImage=createNatureImage,onSaved=()=>{}}){
+  let active;
+  const current=(session,draft)=>active===session&&getPageKey()===session.pageKey&&!root.hidden&&root.isConnected&&(!draft||session.draft===draft);
+  function invalidate(){active?.controller.abort();active=null;root.hidden=true;root.replaceChildren();}
+  root.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();invalidate();}});
+
+  function choose(session,item){
+    if(!current(session)||session.saving)return;
+    const draft={...item,imageUrl:natureImageModel(item).url};session.draft=draft;session.saved=false;
+    const details=session.details;details.replaceChildren();
+    const photo=node('div','selection-explorer-photo');
+    const title=node('h4','',draft.name);
+    const caution=node('p','selection-explorer-caution',draft.imageKind==='generated'?'AI 生成示意图 · 非实拍，不能用于物种鉴定':draft.matchNote||'名称线索 · 物种待核对');
+    const metadata=node('p','selection-explorer-meta',`${draft.scientificName||'学名待核对'} · ${taxonomyPresentation(draft).rankLabel}`);
+    const source=node('p','selection-explorer-meta',draft.sourceLabel||'按原名称收纳 · 尚未确认分类资料');
+    let generation,generating=false;
+    function offerGeneration(){
+      if(!current(session,draft)||generation)return;
+      generation=createGeneration({getItem:()=>draft,isCurrent:()=>current(session,draft)&&!session.saving&&!session.saved,onBusyChange:busy=>{
+        if(!current(session,draft)||(busy&&(session.saving||session.saved)))return;
+        generating=busy===true;save.disabled=generating||session.saving||session.saved;
+        save.setAttribute('aria-busy',String(generating||session.saving));
+        if(generating){save.textContent='生成中 · 完成后可收藏';session.status.textContent='正在生成 AI 示意图，请等待完成后再收藏。';}
+        else if(!session.saved&&!session.saving){save.textContent='快速收藏';session.status.textContent='暂未得到可用生成图片，请查看任务提示；也可按原名待核对收藏。';}
+      },onGenerated:image=>{
+        if(!current(session,draft)||session.saved||session.saving)return;
+        const url=natureImageModel(image).url;
+        if(!/^\/generated-images\/[a-f0-9-]{36}\.jpg$/.test(url)){session.status.textContent='生成图片地址无效，未替换当前图片。';return;}
+        session.status.textContent='AI 示意图已完成，请核对后收藏；非实拍，不能用于物种鉴定。';
+        choose(session,{...draft,imageUrl:url,imageKind:'generated',imageAttribution:typeof image.imageAttribution==='string'?image.imageAttribution.slice(0,1000):'AI 生成示意图 · 非实拍，不能用于物种鉴定'});
+      }});
+      details.append(generation);
+    }
+    photo.append(createImage(draft,{onStateChange:state=>{if(state==='error')offerGeneration();}}));
+    const save=action(draft.imageKind==='generated'?'收藏 AI 示意图卡片':'快速收藏','save',async()=>{
+      if(!current(session,draft)||generating||session.saving||session.saved)return;
+      session.saving=true;save.disabled=true;save.textContent='收藏中…';save.setAttribute('aria-busy','true');
+      try{
+        const result=await collector.collect({...draft},session.context);
+        if(!current(session,draft))return;
+        session.saved=true;save.textContent=result.alreadyExists?'已在收藏中 ✓':'已收藏 ✓';
+        if(generation)generation.hidden=true;
+        session.status.textContent=result.alreadyExists?'已有同名或同种收藏，本次未覆盖原卡。可在万物收藏中继续补充资料。':'已保存这次阅读遇见，可以继续阅读。';
+        onSaved(result);
+      }catch(error){if(current(session,draft))session.status.textContent=error.message||'收藏暂未完成，请重试。';}
+      finally{session.saving=false;if(current(session,draft)){save.disabled=session.saved||generating;save.setAttribute('aria-busy',String(generating));if(!session.saved)save.textContent=generating?'生成中 · 完成后可收藏':'重试收藏';}}
+    });
+    details.append(title,photo,caution,metadata,source);
+    if(draft.imageAttribution)details.append(node('p','selection-explorer-credit',draft.imageAttribution));
+    details.append(save);
+    if(!draft.imageUrl)offerGeneration();
+  }
+
+  async function open({text,context={},pageKey=getPageKey()}){
+    const name=selectionExplorerName(text);if(!name){invalidate();return false;}
+    invalidate();
+    const session={name,pageKey,context:Object.freeze(readingContext({...context,quote:context.quote??text})),controller:new AbortController(),saving:false,saved:false};active=session;
+    root.hidden=false;
+    const header=node('div','selection-explorer-heading');const title=node('h3','',`探索「${name}」`);title.id='selection-explorer-title';
+    const close=action('×','close',invalidate);close.setAttribute('aria-label','关闭选词探索');
+    header.append(title,close);root.setAttribute('aria-labelledby',title.id);
+    const status=node('p','selection-explorer-status','正在按名称查找资料…');status.setAttribute('role','status');session.status=status;
+    const results=node('div','selection-explorer-results');session.details=node('div','selection-explorer-details');
+    root.append(header,node('p','selection-explorer-intro','名称线索需核对。仅查询名称，原书片段留在本机。'),status,results,session.details);
+    const timer=setTimeout(()=>session.controller.abort(),22000);
+    try{
+      const response=await request(`/api/search?q=${encodeURIComponent(name)}&kind=all`,{signal:session.controller.signal});
+      if(!current(session))return false;
+      const data=await response.json();if(!current(session))return false;
+      if(!response.ok)throw new Error(typeof data.error==='string'?data.error:'查询暂不可用');
+      const candidates=sortPhotoCandidates((Array.isArray(data.results)?data.results:[]).filter(item=>item&&typeof item.name==='string'&&item.name.trim()&&item.name.length<=120&&relevantCandidate(name,item)).slice(0,20)).slice(0,6);
+      const warning=typeof data.warning==='string'?data.warning.slice(0,300):'';
+      status.textContent=candidates.length?`找到 ${candidates.length} 条参考资料，请选择候选；名称相同不代表已确认原书物种。${warning}`:`暂未找到匹配资料。可按原名生成 AI 示意图，或直接待核对收纳。${warning}`;
+      for(const candidate of candidates){
+        const image=natureImageModel(candidate);
+        const button=action(`${candidate.name} · ${candidate.scientificName||'学名待核对'} · ${image.url?'有参考图':'暂无可用图片'}`,'choose',()=>choose(session,candidate));
+        results.append(button);
+      }
+      if(candidates.length)results.append(action(`仍按原名「${name}」待核对收纳`,'keep-name',()=>choose(session,unverifiedNameCard(name))));
+      else choose(session,unverifiedNameCard(name));
+    }catch(error){
+      if(!current(session))return false;
+      status.textContent='资料查询暂不可用，未确认名称对应的物种。仍可按原名生成 AI 示意图或待核对收纳。';
+      choose(session,unverifiedNameCard(name));
+    }finally{clearTimeout(timer);}
+    return true;
+  }
+  return {open,invalidate};
+}
