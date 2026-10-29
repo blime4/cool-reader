@@ -5,16 +5,16 @@ export function queuePresentation(tasks = []) {
     const active = pending(task);
     const stage = task.connectionWarning && active ? '连接暂不可用 · 任务可能仍在运行' : task.status === 'done' ? ({'image-present':'已同步 · 保留已有图片','encounter-recorded':'阅读出处已收藏','image-added':'配图已同步到收藏','image-replaced':'配图已同步到收藏'}[task.reason] || '任务已完成') : task.status === 'failed' ? '配图未完成 · 收藏已保留' : task.status === 'cancelled' ? '任务已停止' : ({queued:'排队中',generating:'正在本机生成',writing:'正在写入收藏'}[task.phase || task.status] || '后台处理中');
     const detail = task.status === 'failed' ? task.error : task.connectionWarning || (task.reason === 'identity-changed' ? '名称或分类已修改，未写入旧结果。' : task.reason === 'card-deleted' ? '收藏已删除，未重新创建卡片。' : '');
-    return {id:task.id,name:bounded(task.plant?.name || task.name || '未命名任务',120),active,status:task.status,stage,detail:bounded(detail,220)};
+    return {id:task.id,name:bounded(task.plant?.name || task.name || '未命名任务',120),active,status:task.status,retryable:task.status==='failed'&&task.retryable===true,stage,detail:bounded(detail,220)};
   }).sort((a,b)=>Number(b.active)-Number(a.active));
   const active = rows.filter(row=>row.active).length, failed = rows.filter(row=>row.status === 'failed').length, done = rows.filter(row=>row.status === 'done').length;
   return {rows,active,failed,label:active ? `正在生成 ${active}` : failed ? `待处理 ${failed}` : done ? `已完成 ${done}` : `生成记录 ${rows.length}`};
 }
 
-export function createGenerationQueueView({root}) {
+export function createGenerationQueueView({root,onRetry}) {
   const node = (tag,className,text)=>{ const value = document.createElement(tag); value.className = className; if (text !== undefined) value.textContent = text; return value; };
   let tasks = [], expanded = false, timer, completionKey = '', presentation = queuePresentation();
-  const dismissed = new Set();
+  const dismissed = new Set(),retrying=new Set();
   const toggle = node('button','generation-queue-toggle'); toggle.type = 'button';
   toggle.setAttribute('aria-live','polite');
   const panel = node('section','generation-queue-panel'); panel.id = `${root.id}-list`; panel.hidden = true;
@@ -37,7 +37,9 @@ export function createGenerationQueueView({root}) {
     for (const row of presentation.rows) {
       const item = node('li',`generation-queue-row task-${row.status}`);
       item.append(node('strong','',row.name),node('span','',row.stage));
-      if (row.detail) item.append(node('p','',row.detail)); list.append(item);
+      if (row.detail) item.append(node('p','',row.detail));
+      if(row.retryable&&onRetry){const retry=node('button','','恢复服务后重试');retry.type='button';retry.disabled=retrying.has(row.id);retry.addEventListener('click',async()=>{if(retrying.has(row.id))return;retrying.add(row.id);retry.disabled=true;try{await onRetry(row.id);}catch(error){item.append(node('p','',error.message||'重试连接暂不可用，收藏仍保留，请稍后再试。'));}finally{retrying.delete(row.id);retry.disabled=false;}});item.append(retry);}
+      list.append(item);
     }
     if (root.hidden) { expand(false); if (hadFocus) document.getElementById?.('toggle-book')?.focus({preventScroll:true}); }
     const key = !presentation.active && presentation.rows.length ? JSON.stringify(presentation.rows.map(row=>[row.id,row.status])) : '';

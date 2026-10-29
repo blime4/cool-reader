@@ -47,7 +47,7 @@ export function createSelectionExplorer({root,getPageKey,collector,request=fetch
     if(active?.draft&&current(active)&&!active.saving){const card=storedCard(active.draft);if(card&&(!active.saved||active.draft.id!==card.id||active.draft.imageUrl!==card.imageUrl))choose(active,card);}
   }
   function acceptCollection(next){syncCollection(next);onCollection(next);}
-  const background=createBackgroundCollectionClient({request,getCollection:()=>knownCards,onCollection:acceptCollection,onTask:task=>{if(active?.draft?.id===task.plantId&&current(active))active.status.textContent=taskMessage(task);}});
+  const background=createBackgroundCollectionClient({request,getCollection:()=>knownCards,onCollection:acceptCollection,onTask:task=>{if(active?.draft?.id===task.plantId&&current(active)){if(task.status==='failed'&&task.retryable&&!active.saving)choose(active,task.plant||active.draft);active.status.textContent=taskMessage(task);}}});
   function invalidate(){detailModal?.close();active?.controller.abort();active=null;root.hidden=true;root.replaceChildren();}
   root.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();invalidate();}});
 
@@ -115,6 +115,8 @@ export function createSelectionExplorer({root,getPageKey,collector,request=fetch
     details.append(title,photo,caution,metadata,source);
     if(draft.imageAttribution)details.append(node('p','selection-explorer-credit',draft.imageAttribution));
     details.append(save,detailButton);
+    const failedTask=background.forPlant(draft.id);
+    if(failedTask?.status==='failed'&&failedTask.retryable)details.append(action('恢复服务后重试配图','retry-background',async()=>{if(!current(session,draft)||session.saving)return;session.saving=true;try{const task=await background.retry(failedTask.id);if(current(session,draft)){session.saving=false;choose(session,task.plant||draft);session.status.textContent=taskMessage(task);}}catch(error){if(current(session,draft))session.status.textContent=error.message||'重试连接暂不可用，收藏仍保留。';}finally{session.saving=false;}}));
     if(stored)details.append(action('追加本次阅读出处','record-encounter',()=>submitBackground(false)));
     if(!draft.imageUrl){
       const task=background.forPlant(draft.id);
@@ -177,5 +179,5 @@ export function createSelectionExplorer({root,getPageKey,collector,request=fetch
     if(!card||!/^\/generated-images\/[a-f0-9-]{36}\.jpg$/.test(natureImageModel(card).url))throw new Error('仅 AI 示意图可重新生成，资料照片会保留');
     return background.submit({plant:guideCollectionPayload({...card,lookupName:card.name},source),plantId:card.id,context:source,generate:true,regenerate:true});
   }
-  return {open,invalidate,syncCollection,regenerateGuide,detailOpen:()=>detailModal?.isOpen()===true,resumeTasks:background.resume,subscribeTasks:background.subscribe,getTasks:background.getTasks,taskForGuide(guide){const card=storedCard(guide)||findCollectedGuide(getCollection(),guide);return card?background.forPlant(card.id):null;}};
+  return {open,invalidate,syncCollection,regenerateGuide,retryTask:background.retry,detailOpen:()=>detailModal?.isOpen()===true,resumeTasks:background.resume,subscribeTasks:background.subscribe,getTasks:background.getTasks,taskForGuide(guide){const card=storedCard(guide)||findCollectedGuide(getCollection(),guide);return card?background.forPlant(card.id):null;}};
 }

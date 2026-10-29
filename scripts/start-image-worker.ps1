@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PythonPath, [int]$Port = 4174, [string]$ModelPath, [ValidateRange(0, 86400)][int]$IdleSeconds = 600)
+param([string]$PythonPath, [int]$Port = 4174, [string]$ModelPath, [ValidateRange(0, 86400)][int]$IdleSeconds = 600, [ValidateRange(0, 8)][int]$MaxResidentJobs = 0)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 if (-not $PythonPath) { $PythonPath = Join-Path $projectRoot '.venv-image/Scripts/python.exe' }
@@ -17,5 +17,7 @@ if (-not (Test-Path -LiteralPath $tokenPath)) {
 }
 if ($ModelPath) { $env:QWEN_IMAGE_MODEL = (Resolve-Path -LiteralPath $ModelPath).Path }
 # No dependency installation or model download occurs here.
-& $PythonPath (Join-Path $PSScriptRoot 'qwen-image-worker.py') --port $Port --token-file $tokenPath --idle-seconds $IdleSeconds
-exit $LASTEXITCODE
+& $PythonPath (Join-Path $PSScriptRoot 'qwen-image-worker.py') --port $Port --token-file $tokenPath --idle-seconds $IdleSeconds --max-resident-jobs $MaxResidentJobs
+$workerExitCode = $LASTEXITCODE
+if ($workerExitCode -ne 0) { Write-Error ("Folio image worker exited unexpectedly with code $workerExitCode. The OS may have terminated it for memory exhaustion.") }
+exit $workerExitCode

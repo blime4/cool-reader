@@ -88,11 +88,13 @@ python -m venv .venv-image
 powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start-image-worker.ps1 -ModelPath models/Qwen-Image-2.1
 ```
 
-保留已有 `config.local.json` 字段，追加 `"imageGeneration":{"enabled":true,"port":4174}`，然后重启本地服务。模型和 `.venv-image` 齐全时，双击 `scripts/launch.cmd` 会自动在后台启动图像 worker；若 4174 被其他服务占用，启动器不会结束它，Node 阅读服务仍会正常启动，详情写入 `work/folio-image-worker.err.log`。访问 `/api/image-generation/health` 探活。未安装依赖、缺模型或 worker 未就绪时会显示明确原因；探活不导入模型也不自动联网下载。生成始终 `local_files_only=True`。首次生成加载管线，成功后模型常驻并供连续任务复用，默认空闲 10 分钟后释放；失败或 OOM 会立即释放管线并清空 CUDA 缓存。手动启动时可用 `-IdleSeconds` 调整空闲期限，设为 `0` 表示持续常驻；`-PythonPath` 可指定已有 Python 环境，`-Port` 须与配置一致。
+保留已有 `config.local.json` 字段，追加 `"imageGeneration":{"enabled":true,"port":4174}`，然后重启本地服务。模型和 `.venv-image` 齐全时，双击 `scripts/launch.cmd` 会自动在后台启动图像 worker；若 4174 被其他服务占用，启动器不会结束它，Node 阅读服务仍会正常启动，详情写入 `work/folio-image-worker.err.log`。访问 `/api/image-generation/health` 探活。未安装依赖、缺模型或 worker 未就绪时会显示明确原因；探活不导入模型也不自动联网下载。生成始终 `local_files_only=True`。每次成功后都会回收临时张量及 CUDA 缓存；为了避免 Windows 在 Python 捕获 OOM 前因提交内存耗尽而结束进程，物理内存不足 96 GB 时默认每张图后释放管线，内存更大的机器最多复用两张，随后重载。仍在驻留期的管线默认空闲 10 分钟后释放；失败或 OOM 会立即释放。可用 `-MaxResidentJobs` 明确设置 1 至 8（`0` 为自动），用 `-IdleSeconds` 调整空闲期限；`-PythonPath` 可指定已有 Python 环境，`-Port` 须与配置一致。
 
 查询已有任务状态时，短暂网络错误最多连续重试 3 次，成功响应后恢复正常轮询；探活和创建任务不自动重试。持续断线会提示“任务可能仍在运行”，避免把连接失败当成生成失败或重复提交任务。
 
 后台收藏任务由 Node 服务管理，最多 10 个待完成任务，逐个调用本地模型；生成失败仍保留已收藏的名称和出处。网页会重新接入服务端任务并同步收藏状态，后台生成结果始终标为 AI 非实拍。请保持 Node 与图像 worker 运行；任务队列目前保存在 Node 进程内，重启服务会停止这次队列，已保存卡片与图片不丢失，可重新点击补图。Obsidian 写入发现并发修改会重新读取，持续冲突时报告失败并保留原文件。
+
+若图像 worker 因系统内存或虚拟内存不足退出，网页会显示本地服务连接中断，收藏和出处仍保留。先确认内存状况并恢复图像服务（固定脚本 `scripts/start-image-worker.ps1`），再点击后台队列或选词面板中的「恢复服务后重试」。重试只引用原任务和同一收藏，不再次追加出处、不重放旧表单；并发点击合并，后来新增的实拍或其他图片不会被覆盖。Node 不自动启动或反复重启 Python，以免在资源不足时循环耗尽内存。
 
 服务只监听 `127.0.0.1:4174`，用被 Git 忽略的 `data/image-worker.token` 验证 Node 请求。Node 校验 Host/Origin，任务每次最多一张、启动间隔至少 5 秒，图片上限 8 MiB、等待上限 30 分钟。超时后 Python 可能仍在计算，会拒绝新任务直到完成；需要时在服务终端按 Ctrl+C 结束。名称和学名留在本机，不发送书籍全文。生成记录在 `data/generated-images/`，Obsidian 保存时复制到管理附件。JSON 备份不含图片字节，迁移时同时复制图片目录或完整 Obsidian 管理目录。
 

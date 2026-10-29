@@ -33,10 +33,11 @@ test('launcher starts one configured local image worker without killing an occup
   assert.match(launcher, /folio-image-worker\.err\.log/);
   assert.doesNotMatch(launcher, /Stop-Process|taskkill/i);
 });
-test('image generation docs describe automatic launch and resident pipeline timeout', async () => {
+test('image generation docs describe automatic launch and memory-safe residency', async () => {
   const readme = await source('README.md');
   assert.match(readme, /launch\.cmd[^\n]+自动启动图像 worker/i);
-  assert.match(readme, /成功后模型常驻[^\n]+10\s*分钟/);
+  assert.match(readme, /不足 96 GB[^\n]+每张图后释放管线/);
+  assert.match(readme, /空闲 10\s*分钟后释放/);
   assert.doesNotMatch(readme, /每次任务按需重新加载模型/);
 });
 test('public portal has explicit local launch links without accessing private data', async () => {

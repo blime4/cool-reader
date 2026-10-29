@@ -1,12 +1,19 @@
 // Fullscreen is presentation only: it never changes the book or reading position.
-export function createReaderFullscreen({panel,enterButton,exitButton,orientationButton,sizeSelect,document:doc = document,onLayout = ()=>{}}) {
-  let active = false, front = false, native = false, generation = 0, previousFocus, overflow = '', inertSiblings = [];
+export function createReaderFullscreen({panel,enterButton,exitButton,orientationButton,sizeSelect,storage,document:doc = document,onLayout = ()=>{}}) {
+  let active = false, front = true, native = false, generation = 0, previousFocus, overflow = '', inertSiblings = [];
   let exitingNative = 0, size = 'large';
+  try { front = storage?.getItem('folio-reader-orientation') !== 'tilted'; } catch {}
+  function syncOrientationButton() {
+    orientationButton.setAttribute('aria-pressed',String(front));
+    orientationButton.textContent = front ? '正放 · 切换斜放' : '斜放 · 切换正放';
+  }
+  syncOrientationButton();
   function update(value) {
     if (active === value) return;
     active = value;
     panel.classList.toggle('reader-fullscreen',value);
     panel.classList.toggle('reader-front-view',value && front);
+    syncOrientationButton();
     enterButton.setAttribute('aria-pressed',String(value));
     exitButton.hidden = orientationButton.hidden = !value;
     if (sizeSelect) { sizeSelect.hidden = !value; sizeSelect.value = size; panel.dataset.readerSize = size; }
@@ -53,8 +60,8 @@ export function createReaderFullscreen({panel,enterButton,exitButton,orientation
   function orientation() {
     if (!active) return;
     front = !front; panel.classList.toggle('reader-front-view',front);
-    orientationButton.setAttribute('aria-pressed',String(front));
-    orientationButton.textContent = front ? '正放 · 切换斜放' : '斜放 · 切换正放';
+    syncOrientationButton();
+    try { storage?.setItem('folio-reader-orientation',front ? 'straight' : 'tilted'); } catch {}
     onLayout({active,front,orientationChanged:true});
   }
   enterButton.addEventListener('click',enter);

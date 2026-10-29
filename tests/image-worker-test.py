@@ -18,9 +18,11 @@ class WorkerTests(unittest.TestCase):
     def setUp(self):
         worker.cancel_idle_release()
         worker.PIPELINE = None
+        worker.RESIDENT_JOBS = 0
         self.server = worker.ThreadingHTTPServer(("127.0.0.1", 0), worker.Handler)
         self.server.token = "fake-private-token-for-test-only"
         self.server.idle_seconds = 600
+        self.server.max_resident_jobs = 3
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.base = "http://127.0.0.1:" + str(self.server.server_port)
@@ -31,6 +33,7 @@ class WorkerTests(unittest.TestCase):
         self.thread.join()
         worker.cancel_idle_release()
         worker.PIPELINE = None
+        worker.RESIDENT_JOBS = 0
 
     def test_health_is_authenticated_and_never_loads_model(self):
         with self.assertRaises(urllib.error.HTTPError) as error:
@@ -42,6 +45,7 @@ class WorkerTests(unittest.TestCase):
             self.assertFalse(response["ready"])
             self.assertEqual(response["app"], "folio-qwen-image")
             self.assertEqual(response["idleTimeoutSeconds"], 600)
+            self.assertEqual(response["maxResidentJobs"], 3)
             generate.assert_not_called()
 
     def test_invalid_input_and_foreign_origin_rejected(self):
@@ -98,7 +102,7 @@ class WorkerTests(unittest.TestCase):
                 worker.LOCK.release()
                 self.assertIs(worker.PIPELINE, resident)
             self.assertEqual(calls, 2)
-            self.assertEqual(cleanup_events, [])
+            self.assertEqual(cleanup_events, ["gc", "cache", "gc", "cache"])
             with patch.object(worker, "generate_image", side_effect=RuntimeError("simulated OOM")):
                 with self.assertRaises(urllib.error.HTTPError) as error:
                     urllib.request.urlopen(request())
@@ -126,7 +130,7 @@ class WorkerTests(unittest.TestCase):
             while worker.PIPELINE is not None and time.monotonic() < deadline:
                 time.sleep(0.01)
             self.assertIsNone(worker.PIPELINE)
-            self.assertEqual(cleanup_events, ["gc", "cache"])
+            self.assertEqual(cleanup_events, ["gc", "cache", "gc", "cache"])
 
     def test_generate_image_loads_model_only_once_for_consecutive_calls(self):
         class InferenceMode:
@@ -157,6 +161,32 @@ class WorkerTests(unittest.TestCase):
             self.assertEqual(worker.generate_image({"name": "树", "scientificName": "", "kind": "plant"}), b"jpeg")
         pipeline_class.from_pretrained.assert_called_once()
         self.assertEqual(pipeline.call_count, 2)
+        self.assertTrue(all(call.kwargs["use_kv_cache"] is False for call in pipeline.call_args_list))
+
+    def test_low_memory_auto_mode_releases_after_each_job(self):
+        self.assertEqual(worker.automatic_resident_jobs(32 * 1024**3), 1)
+        self.assertEqual(worker.automatic_resident_jobs(128 * 1024**3), 2)
+
+        cleanup_events = []
+        cuda = SimpleNamespace(is_available=lambda: True, empty_cache=Mock(side_effect=lambda: cleanup_events.append("cache")))
+        self.server.max_resident_jobs = 1
+        calls = 0
+
+        def generate(_data):
+            nonlocal calls
+            self.assertIsNone(worker.PIPELINE)
+            worker.PIPELINE = object()
+            calls += 1
+            return b"\xff\xd8\xff\xe0example"
+
+        request = urllib.request.Request(self.base + "/generate", data=json.dumps({"name": "示例鸟"}).encode(), headers={"X-Folio-Token": self.server.token, "Content-Type": "application/json"})
+        with patch.object(worker, "readiness", return_value=(True, "ready")), patch.object(worker, "generate_image", side_effect=generate), patch.dict(sys.modules, {"torch": SimpleNamespace(cuda=cuda)}), patch("gc.collect", side_effect=lambda: cleanup_events.append("gc")):
+            for _ in range(2):
+                with urllib.request.urlopen(request) as response:
+                    self.assertTrue(response.read().startswith(b"\xff\xd8\xff"))
+                self.assertIsNone(worker.PIPELINE)
+            self.assertEqual(calls, 2)
+            self.assertEqual(cleanup_events, ["gc", "cache", "gc", "cache"])
 
 
 if __name__ == "__main__":

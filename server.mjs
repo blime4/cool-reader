@@ -46,6 +46,8 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(url.pathname==='/api/image-generation/health'&&method==='GET')return json(res,200,await generator.health());
       if(url.pathname==='/api/collection-tasks'&&method==='POST')return json(res,202,{task:await collectionTasks.start(await body(req,128*1024))});
       if(url.pathname==='/api/collection-tasks'&&method==='GET')return json(res,200,{tasks:await collectionTasks.list()});
+      const retryTask=url.pathname.match(/^\/api\/collection-tasks\/([a-f0-9-]{36})\/retry$/);
+      if(retryTask&&method==='POST'){const input=await body(req,4096);if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new ApiError(400,'重试请求无需卡片或阅读内容');return json(res,202,{task:await collectionTasks.retry(retryTask[1])});}
       const collectionTask=url.pathname.match(/^\/api\/collection-tasks\/([a-f0-9-]{36})$/);
       if(collectionTask&&method==='GET')return json(res,200,{task:await collectionTasks.get(collectionTask[1])});
       if(url.pathname==='/api/image-generation/jobs'&&method==='POST')return json(res,202,{job:await generator.start(await body(req,4096))});

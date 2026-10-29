@@ -907,7 +907,7 @@ for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
 selectionExplorer=createSelectionExplorer({root:$('selection-explorer'),getPageKey:currentPage,collector:guideCollector,getCollection:()=>collectedSpecies,onCollection:updateCollectedSpecies,onSaved:result=>toast(result.background?'已交给后台，可继续阅读；配图完成后会同步收藏。':result.alreadyExists?'已在收藏中，本次未覆盖原卡。':`已收藏「${result.plant.name}」，继续阅读吧。`)});
-const generationQueueView=createGenerationQueueView({root:$('generation-queue')});
+const generationQueueView=createGenerationQueueView({root:$('generation-queue'),onRetry:id=>selectionExplorer.retryTask(id)});
 let shownQueueWarning='';
 selectionExplorer.subscribeTasks((tasks,connection)=>{generationQueueView.update(tasks);const warning=connection?.connectionWarning||'';if(warning&&warning!==shownQueueWarning)toast(warning);shownQueueWarning=warning;});
 void selectionExplorer.resumeTasks();
@@ -923,7 +923,7 @@ bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'
 }});
 bookGuideView.setLimit(guideDensity.value);
 const guidePerimeter = createGuidePerimeter({stage:$('book-stage'),book:$('physical-book'),cards:$('book-guide-cards'),browse:$('browse-book-guides'),dialog:$('guide-density-dialog'),close:$('close-guide-density'),getSize:()=>guideSize.value,onLayout:()=>bookGuideView.schedule()});
-createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-fullscreen'),exitButton:$('exit-reader-fullscreen'),orientationButton:$('reader-orientation'),sizeSelect:$('reader-size'),onLayout:({active,orientationChanged})=>{
+createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-fullscreen'),exitButton:$('exit-reader-fullscreen'),orientationButton:$('reader-orientation'),sizeSelect:$('reader-size'),storage:window.localStorage,onLayout:({active,orientationChanged})=>{
   const panel = $('reader-panel'); panel.classList.add('reader-layout-switch');
   bookGuideView.settleBookTransition();
   guidePerimeter.schedule();

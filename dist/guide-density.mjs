@@ -23,27 +23,45 @@ export function guideRailLayout({width,height,book,size = 'small'}) {
 
 export function createGuidePerimeter({stage,book,cards,browse,dialog,close,getSize = ()=>'small',onLayout = ()=>{},document:doc = document}) {
   let frame = 0;
+  let rails = [], orderedItems = [], domItems = [], layoutSignature = '';
+  const sameNodes = (a,b)=>a.length === b.length && a.every((node,index)=>node === b[index]);
   stage.dataset.guideRailMode = 'pending';
   const guides = ()=>[...cards.querySelectorAll('.book-guide-card')];
+  const orderedGuides = ()=>{ const found = guides(); return sameNodes([...cards.children],rails) && sameNodes(found,domItems) ? orderedItems : found; };
   const schedule = ()=>{ if (!frame) frame = requestAnimationFrame(arrange); };
   function arrange() {
-    frame = 0; const items = guides(); browse.hidden = cards.hidden || !items.length; browse.textContent = `浏览书引 · ${items.length}`;
+    frame = 0; const items = orderedGuides(); browse.hidden = cards.hidden || !items.length; browse.textContent = `浏览书引 · ${items.length}`;
     if (dialog.open) { onLayout(); return; }
+    if (!items.length) { if (cards.children.length) cards.replaceChildren(); orderedItems = domItems = []; layoutSignature = ''; onLayout(); return; }
     const bounds = stage.getBoundingClientRect(), projected = book.getBoundingClientRect();
     const layout = guideRailLayout({width:bounds.width,height:bounds.height,size:getSize(),book:{left:projected.left-bounds.left,top:projected.top-bounds.top,right:projected.right-bounds.left,bottom:projected.bottom-bounds.top}});
     stage.dataset.guideRailMode = layout.mode;
-    if (layout.mode === 'folded') { cards.dataset.railFolded = 'true'; onLayout(); return; }
+    if (layout.mode === 'folded') { cards.dataset.railFolded = 'true'; orderedItems = items; domItems = guides(); layoutSignature = 'folded'; onLayout(); return; }
     delete cards.dataset.railFolded;
-    const rails = layout.rails.map(position=>{
+    const signature = JSON.stringify(layout);
+    const attached = sameNodes([...cards.children],rails), sameItems = sameNodes(items,orderedItems);
+    if (signature === layoutSignature && attached && sameItems) { onLayout(); return; }
+    const byEdge = new Map(rails.map(rail=>[rail.dataset.edge,rail]));
+    const nextRails = layout.rails.map(position=>{
+      const previous = byEdge.get(position.edge);
+      if (previous) return previous;
       const rail = doc.createElement('div'); rail.className = `guide-perimeter-rail rail-${position.edge}`;
+      rail.dataset.edge = position.edge;
       rail.setAttribute('aria-label',`${{left:'左侧',right:'右侧',top:'上沿',bottom:'下沿'}[position.edge]}书引，可滚动浏览`); rail.tabIndex = 0;
-      for (const [key,value] of Object.entries({left:position.x,top:position.y,width:position.width,height:position.height})) rail.style[key] = `${value}px`;
       rail.addEventListener('scroll',onLayout,{passive:true}); return rail;
     });
-    items.forEach((item,index)=>rails[index%rails.length].append(item)); cards.replaceChildren(...rails); onLayout();
+    layout.rails.forEach((position,index)=>{
+      for (const [key,value] of Object.entries({left:position.x,top:position.y,width:position.width,height:position.height})) if (nextRails[index].style[key] !== `${value}px`) nextRails[index].style[key] = `${value}px`;
+    });
+    if (!attached || !sameItems || !sameNodes(nextRails,rails)) {
+      for (const rail of nextRails) rail.replaceChildren();
+      items.forEach((item,index)=>nextRails[index%nextRails.length].append(item));
+      if (!sameNodes([...cards.children],nextRails)) cards.replaceChildren(...nextRails);
+    }
+    rails = nextRails; orderedItems = items; domItems = guides(); layoutSignature = signature; onLayout();
   }
   browse.addEventListener('click',()=>{
-    const items = guides(); cards.replaceChildren(...items); delete cards.dataset.railFolded;
+    const items = orderedGuides(); cards.replaceChildren(...items); delete cards.dataset.railFolded;
     dialog.querySelector('.guide-density-dialog-body').append(cards); dialog.showModal(); onLayout();
   });
   close.addEventListener('click',()=>dialog.close());

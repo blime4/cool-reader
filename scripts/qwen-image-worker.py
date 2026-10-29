@@ -1,5 +1,6 @@
 """Loopback-only, lazy Qwen-Image-2.1 worker. Health never imports torch/downloads weights."""
 import argparse
+import ctypes
 import gc
 import importlib.util
 import io
@@ -14,6 +15,7 @@ from pathlib import Path
 MODEL = "Qwen/Qwen-Image-2.1"
 LOCK = threading.Lock()
 PIPELINE = None
+RESIDENT_JOBS = 0
 IDLE_TIMER = None
 IDLE_GUARD = threading.Lock()
 
@@ -47,10 +49,7 @@ def schedule_idle_release(seconds):
     timer.start()
 
 
-def release_pipeline():
-    global PIPELINE
-    cancel_idle_release()
-    PIPELINE = None
+def collect_transients():
     gc.collect()
     # Health/readiness must remain lightweight: never import torch merely to clean up.
     torch = sys.modules.get("torch")
@@ -60,6 +59,48 @@ def release_pipeline():
                 torch.cuda.empty_cache()
         except Exception:
             pass  # CUDA may itself be unavailable after an OOM or device failure.
+
+
+def release_pipeline():
+    global PIPELINE, RESIDENT_JOBS
+    cancel_idle_release()
+    PIPELINE = None
+    RESIDENT_JOBS = 0
+    collect_transients()
+
+
+def automatic_resident_jobs(total_memory):
+    # Qwen-Image can transiently commit far more than its weight files on Windows.
+    # Reusing it on 32/64 GB machines risks an OS resource-exhaustion kill before Python can catch OOM.
+    return 1 if total_memory < 96 * 1024**3 else 2
+
+
+def total_physical_memory():
+    if sys.platform == "win32":
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        status = MemoryStatus()
+        status.dwLength = ctypes.sizeof(status)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return status.ullTotalPhys
+        return 0
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, OSError, ValueError):
+        return 0
+
+
+def finish_success(max_resident_jobs):
+    global RESIDENT_JOBS
+    RESIDENT_JOBS += 1
+    if RESIDENT_JOBS >= max_resident_jobs:
+        release_pipeline()
+    else:
+        collect_transients()
 
 
 def model_location():
@@ -103,7 +144,7 @@ def generate_image(data):
     # Book-guide cards render small. A short 512px draft keeps this fallback usable on 16 GB GPUs;
     # it is deliberately an illustration rather than taxonomic evidence.
     with torch.inference_mode():
-        image = PIPELINE(prompt=prompt, width=512, height=512, num_inference_steps=8,
+        image = PIPELINE(prompt=prompt, width=512, height=512, num_inference_steps=8, use_kv_cache=False,
                          generator=torch.Generator("cuda").manual_seed(secrets.randbelow(2**31))).images[0]
     output = io.BytesIO()
     image.convert("RGB").save(output, format="JPEG", quality=90)
@@ -139,7 +180,8 @@ class Handler(BaseHTTPRequestHandler):
         ready, reason = readiness()
         self.reply(200, {"app": "folio-qwen-image", "model": MODEL, "ready": ready,
                          "reason": reason, "loaded": PIPELINE is not None, "busy": LOCK.locked(),
-                         "idleTimeoutSeconds": self.server.idle_seconds})
+                         "idleTimeoutSeconds": self.server.idle_seconds,
+                         "maxResidentJobs": self.server.max_resident_jobs})
 
     def do_POST(self):
         if not self.authorized():
@@ -183,7 +225,9 @@ class Handler(BaseHTTPRequestHandler):
                 release_pipeline()
             if error:
                 return self.reply(503, {"error": error})
-            schedule_idle_release(self.server.idle_seconds)
+            finish_success(self.server.max_resident_jobs)
+            if PIPELINE is not None:
+                schedule_idle_release(self.server.idle_seconds)
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(image)))
@@ -199,17 +243,22 @@ def main():
     parser.add_argument("--token-file", type=Path, required=True)
     parser.add_argument("--idle-seconds", type=int, default=600,
                         help="release the cached pipeline after this many idle seconds; 0 keeps it loaded")
+    parser.add_argument("--max-resident-jobs", type=int, default=0,
+                        help="successful jobs before release; 0 selects a safe limit from physical memory")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("Invalid port")
     if not 0 <= args.idle_seconds <= 86400:
         parser.error("Invalid idle timeout")
+    if not 0 <= args.max_resident_jobs <= 8:
+        parser.error("Invalid resident job limit")
     token = args.token_file.read_text(encoding="utf-8").strip()
     if not 24 <= len(token) <= 256:
         parser.error("Invalid token file")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     server.token = token
     server.idle_seconds = args.idle_seconds
+    server.max_resident_jobs = args.max_resident_jobs or automatic_resident_jobs(total_physical_memory())
     print("Folio Qwen worker: http://127.0.0.1:" + str(args.port), flush=True)
     server.serve_forever()
 

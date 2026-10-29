@@ -33,6 +33,7 @@ export function createBackgroundCollectionClient({request=fetch,getCollection=()
     })().finally(()=>watches.delete(task.id));watches.set(task.id,work);
   }
   return {getTasks,subscribe(listener){listeners.add(listener);listener(getTasks(),{connectionWarning:queueWarning});return ()=>listeners.delete(listener);},forPlant(id){return [...states.values()].reverse().find(task=>task.plantId===id&&pendingTask(task))||[...states.values()].reverse().find(task=>task.plantId===id)||null;},
+    async retry(id){const key='retry:'+id;if(submissions.has(key))return submissions.get(key);const work=(async()=>{const response=await api('/api/collection-tasks/'+encodeURIComponent(id)+'/retry',{method:'POST',body:'{}'});const task=publish(response.data.task,response.revision);watch(task);return task;})().finally(()=>submissions.delete(key));submissions.set(key,work);return work;},
     async submit(input){const key=JSON.stringify(input);if(submissions.has(key))return submissions.get(key);const work=(async()=>{const response=await api('/api/collection-tasks',{method:'POST',body:key});const task=publish(response.data.task,response.revision);watch(task);return task;})().finally(()=>submissions.delete(key));submissions.set(key,work);return work;},
     async resume(){
       try{const response=await api('/api/collection-tasks');queueWarning='';for(const task of Array.isArray(response.data.tasks)?response.data.tasks:[]){const state=publish(task,response.revision);watch(state);}emit();return true;}
