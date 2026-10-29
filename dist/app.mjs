@@ -12,6 +12,7 @@ import {createGenerationQueueView} from './generation-queue-view.mjs';
 import {createReaderNavigation} from './reader-navigation.mjs';
 import {createGuideDensity,createGuidePerimeter} from './guide-density.mjs';
 import {createGuideSize} from './guide-size.mjs';
+import {createReaderPresentationMode} from './reader-presentation-mode.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -30,6 +31,11 @@ let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
 let guideSeeds = [], bookGuideView;
+const readerPresentation = createReaderPresentationMode({buttons:document.querySelectorAll('[data-reader-presentation]'),storage:window.localStorage,onChange:value=>{
+  $('reader-panel').dataset.readerPresentation = value;
+  renderBook();
+}});
+$('reader-panel').dataset.readerPresentation = readerPresentation.value;
 const guideDensity = createGuideDensity({select:$('guide-density'),stage:$('book-stage'),storage:window.localStorage,onChange:value=>{
   guidePage = null; bookGuideView?.setLimit(value); refreshReadingGuides();
 }});
