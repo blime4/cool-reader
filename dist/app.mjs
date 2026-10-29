@@ -5,6 +5,7 @@ import {selectBookGuides} from './book-guides.mjs';
 import {createBookGuideView} from './book-guide-view.mjs';
 import {captureReadingSelection,readingPageMatches,readingLookupName} from './reader-selection.mjs';
 import {createReaderFullscreen} from './reader-fullscreen.mjs';
+import {createReaderTypography} from './reader-typography.mjs';
 import {createGuideCollector,findCollectedGuide} from './guide-collection.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
@@ -888,6 +889,12 @@ createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-full
   (active ? panel : document.body).append($('toast'));
   requestAnimationFrame(()=>{ bookGuideView.schedule(); requestAnimationFrame(()=>panel.classList.remove('reader-layout-switch')); });
 }});
+createReaderTypography({
+  panel:$('reader-typography-panel'),toggle:$('reader-typography-toggle'),close:$('reader-typography-close'),root:$('reader-panel'),reset:$('reader-typography-reset'),storage:window.localStorage,
+  inputs:{fontSize:$('reader-font-size'),lineHeight:$('reader-line-height'),letterSpacing:$('reader-letter-spacing'),pagePadding:$('reader-page-padding'),fontFamily:document.querySelectorAll('[name="reader-font-family"]')},
+  outputs:{fontSize:$('reader-font-size-value'),lineHeight:$('reader-line-height-value'),letterSpacing:$('reader-letter-spacing-value'),pagePadding:$('reader-page-padding-value')},
+  presetButtons:document.querySelectorAll('[data-reader-preset]'),
+});
 renderBookInfo();
 renderExplorer();
 renderBook();
