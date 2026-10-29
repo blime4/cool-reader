@@ -1,11 +1,14 @@
 import {segmentGuideText} from './book-guides.mjs';
-import {createNatureImage} from './nature-image-view.mjs';
+import {createNatureImage,natureImageModel} from './nature-image-view.mjs';
+import {createGenerationAction} from './image-generation-action.mjs';
 
 const node = (tag,className,text) => { const element = document.createElement(tag); element.className = className; if (text !== undefined) element.textContent = text; return element; };
 const svgNode = tag => document.createElementNS('http://www.w3.org/2000/svg',tag);
 
-export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLookup}) {
+export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLookup,createGeneration=createGenerationAction}) {
   let enabled = true, suspended = false, transitioning = false, frame = 0, active = -1, autoPage, rendered = {guides:[],parts:[]};
+  let renderVersion = 0;
+  const generated = new Map();
   let guideCards = [], paths = [], dots = [], saveButtons = [], collectionLinks = [];
   function markCollected(index,value) {
     const button = saveButtons[index]; if (!button) return;
@@ -88,7 +91,13 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
     leaf.scrollTop = scroll;
   }
   function render({guides,parts,key,autoLocate = false}) {
-    rendered = {guides:guides.slice(0,2),parts,key,autoLocate};
+    const version = ++renderVersion;
+    const stablePageKey = key && typeof key === 'object' ? key.id || key.pageId || '' : String(key || '');
+    const generationKey = guide => JSON.stringify([stablePageKey,guide.kind || 'other',guide.lookupName || guide.name || '',guide.scientificName || '']);
+    rendered = {guides:guides.slice(0,2).map(guide=>{
+      const cached = generated.get(generationKey(guide));
+      return cached && !natureImageModel(guide).url ? Object.assign(guide,cached) : guide;
+    }),parts,key,autoLocate};
     guideCards = []; paths = []; dots = []; saveButtons = []; collectionLinks = []; cards.replaceChildren(); svg.replaceChildren();
     for (const [index,part] of parts.entries()) paintLeaf(leaves[index],part.text,part.selectedText,enabled ? rendered.guides : [],part.offset || 0);
     for (const [index,guide] of rendered.guides.entries()) {
@@ -112,6 +121,18 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
       const collectionLink = node('a','book-guide-view-collection','查看收藏 ↗'); collectionLink.href = '/plants.html#collection-title'; collectionLink.hidden = !guide.collected;
       saveButtons.push(lookup); collectionLinks.push(collectionLink);
       actions.append(find,lookup); body.append(actions);
+      if (!natureImageModel(guide).url) {
+        const generation = createGeneration({
+          getItem:()=>guide,
+          isCurrent:()=>renderVersion === version && rendered.key === key && rendered.guides[index] === guide,
+          onGenerated:image=>{
+            if (renderVersion !== version || rendered.key !== key || rendered.guides[index] !== guide) return;
+            const value = {imageUrl:image.imageUrl,imageKind:image.imageKind,imageAttribution:image.imageAttribution};
+            generated.set(generationKey(guide),value); Object.assign(guide,value); render(rendered);
+          },
+        });
+        generation.className += ' book-guide-generation'; body.append(generation);
+      }
       body.append(collectionLink);
       card.append(photo,body);
       if (guide.imageAttribution) { const credit = node('p','book-guide-credit',guide.imageAttribution); credit.title = guide.imageAttribution; card.append(credit); }

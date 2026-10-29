@@ -85,7 +85,9 @@ python -m venv .venv-image
 powershell -NoProfile -ExecutionPolicy RemoteSigned -File scripts/start-image-worker.ps1 -ModelPath models/Qwen-Image-2.1
 ```
 
-保留已有 `config.local.json` 字段，追加 `"imageGeneration":{"enabled":true,"port":4174}`，然后重启 Node 服务。访问 `/api/image-generation/health` 探活。未安装依赖、缺模型或服务未启动时会显示明确原因；探活不导入模型也不自动联网下载。生成始终 `local_files_only=True`，首次点击才加载。可用 `-PythonPath` 指定已有 Python 环境；`-Port` 须与配置一致。
+保留已有 `config.local.json` 字段，追加 `"imageGeneration":{"enabled":true,"port":4174}`，然后重启 Node 服务。访问 `/api/image-generation/health` 探活。未安装依赖、缺模型或服务未启动时会显示明确原因；探活不导入模型也不自动联网下载。生成始终 `local_files_only=True`，每次任务按需重新加载模型；成功或失败后释放管线、回收对象并清空 CUDA 缓存，降低连续生成的内存压力。可用 `-PythonPath` 指定已有 Python 环境；`-Port` 须与配置一致。
+
+查询已有任务状态时，短暂网络错误最多连续重试 3 次，成功响应后恢复正常轮询；探活和创建任务不自动重试。持续断线会提示“任务可能仍在运行”，避免把连接失败当成生成失败或重复提交任务。
 
 服务只监听 `127.0.0.1:4174`，用被 Git 忽略的 `data/image-worker.token` 验证 Node 请求。Node 校验 Host/Origin，任务每次最多一张、启动间隔至少 5 秒，图片上限 8 MiB、等待上限 30 分钟。超时后 Python 可能仍在计算，会拒绝新任务直到完成；需要时在服务终端按 Ctrl+C 结束。名称和学名留在本机，不发送书籍全文。生成记录在 `data/generated-images/`，Obsidian 保存时复制到管理附件。JSON 备份不含图片字节，迁移时同时复制图片目录或完整 Obsidian 管理目录。
 

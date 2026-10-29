@@ -1,10 +1,12 @@
 """Loopback-only, lazy Qwen-Image-2.1 worker. Health never imports torch/downloads weights."""
 import argparse
+import gc
 import importlib.util
 import io
 import json
 import os
 import secrets
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,6 +14,20 @@ from pathlib import Path
 MODEL = "Qwen/Qwen-Image-2.1"
 LOCK = threading.Lock()
 PIPELINE = None
+
+
+def release_pipeline():
+    global PIPELINE
+    PIPELINE = None
+    gc.collect()
+    # Health/readiness must remain lightweight: never import torch merely to clean up.
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass  # CUDA may itself be unavailable after an OOM or device failure.
 
 
 def model_location():
@@ -113,19 +129,29 @@ class Handler(BaseHTTPRequestHandler):
         if not LOCK.acquire(blocking=False):
             return self.reply(429, {"error": "An image is already being generated"})
         try:
-            ready, reason = readiness()
-            if not ready:
-                return self.reply(503, {"error": reason})
-            image = generate_image(data)
-            if len(image) > 8 * 1024 * 1024:
-                raise RuntimeError("生成图片超过 8 MB")
+            error = None
+            image = None
+            try:
+                ready, reason = readiness()
+                if not ready:
+                    error = reason
+                else:
+                    image = generate_image(data)
+                    if len(image) > 8 * 1024 * 1024:
+                        raise RuntimeError("生成图片超过 8 MB")
+            except Exception:
+                error = "本地模型推理失败：请检查 Diffusers/CUDA 版本、模型完整性与内存；未生成图片。"
+            finally:
+                # Drop exception tracebacks before collecting; they can retain model tensors.
+                # Finish cleanup before returning success, so the next task reloads a fresh model.
+                release_pipeline()
+            if error:
+                return self.reply(503, {"error": error})
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(image)))
             self.end_headers()
             self.wfile.write(image)
-        except Exception:
-            self.reply(503, {"error": "本地模型推理失败：请检查 Diffusers/CUDA 版本、模型完整性与内存；未生成图片。"})
         finally:
             LOCK.release()
 
