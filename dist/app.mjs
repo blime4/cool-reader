@@ -3,6 +3,9 @@ import { readBookFile } from './importers.mjs';
 import { createBookMotion } from './book-motion.mjs';
 import {selectBookGuides} from './book-guides.mjs';
 import {createBookGuideView} from './book-guide-view.mjs';
+import {captureReadingSelection,readingPageMatches,readingLookupName} from './reader-selection.mjs';
+import {createReaderFullscreen} from './reader-fullscreen.mjs';
+import {createGuideCollector,findCollectedGuide} from './guide-collection.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -21,7 +24,24 @@ let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
 let guideSeeds = [], bookGuideView;
-let guidePage, guideCollection, guideSeedRef, guideNamesRef, currentGuides = [];
+let guidePage, guideCollection, guideSeedRef, guideNamesRef, guideMatchRef, currentGuides = [];
+const pageReadingMatches = new WeakMap();
+const readingMatchFailures = new WeakSet();
+const noReadingMatches = [];
+let pendingMatchPage, matchController, selectedReading, selectedReadingPage;
+const guideCollector = createGuideCollector({
+  getCollection:()=>collectedSpecies,
+  onCollection:next=>{
+    collectedSpecies = next;
+    natureNames = [...new Set([...natureNames,...next.map(item=>item.name)])]; natureIndexedBook = null;
+    bookGuideView?.updateCollected(guide=>Boolean(findCollectedGuide(next,guide)));
+    renderNature(); renderBookInfo();
+  },
+  request:async(path,options)=>{
+    const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),20000);
+    try { return await fetch(path,{...options,signal:controller.signal}); } finally { clearTimeout(timer); }
+  },
+});
 let trailCache;
 const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 const pageMotion = createBookMotion({
@@ -103,12 +123,16 @@ function setBook(book, demo = false, bookId = '') {
   $('toggle-book').querySelector('span').textContent = '收起书本';
   $('toggle-book').setAttribute('aria-expanded', 'true');
   document.querySelector('.book-spread').setAttribute('aria-hidden', 'false');
+  document.querySelector('.book-spread').inert = false;
   for (const leaf of document.querySelectorAll('.leaf-copy')) leaf.tabIndex = 0;
   clearFilters();
   renderBookInfo();
   renderBook();
   populateChapterSelect();
-  if (wasClosed) bookGuideView?.bookTransition();
+  if (wasClosed) {
+    const panel = $('reader-panel');
+    bookGuideView?.bookTransition({animated:!panel.classList.contains('reader-fullscreen') && !panel.classList.contains('reader-layout-switch')});
+  }
 }
 
 function renderBookInfo() {
@@ -161,9 +185,15 @@ function pageParts(index) {
 
 function guidesForPage(index) {
   const page = state.book.pages[index];
-  if (guidePage !== page || guideCollection !== collectedSpecies || guideSeedRef !== guideSeeds || guideNamesRef !== natureNames) {
-    currentGuides = selectBookGuides(page.text,collectedSpecies,guideSeeds,{limit:2,names:natureNames});
+  const matches = pageReadingMatches.get(page) || noReadingMatches;
+  if (guidePage !== page || guideCollection !== collectedSpecies || guideSeedRef !== guideSeeds || guideNamesRef !== natureNames || guideMatchRef !== matches) {
+    currentGuides = selectBookGuides(page.text,collectedSpecies,[...guideSeeds,...matches.flatMap(item=>item.records)],{limit:2,names:[...natureNames,...matches.map(item=>item.name)]}).map(guide=>{
+      const lookupName = readingLookupName(guide.name,matches);
+      const value = lookupName === guide.name ? guide : {...guide,lookupName,matchNote:`原文「${guide.name}」可能指「${lookupName}」，需核对`};
+      return {...value,collected:Boolean(findCollectedGuide(collectedSpecies,value))};
+    });
     guidePage = page; guideCollection = collectedSpecies; guideSeedRef = guideSeeds; guideNamesRef = natureNames;
+    guideMatchRef = matches;
   }
   return currentGuides;
 }
@@ -171,6 +201,7 @@ function guidesForPage(index) {
 function renderBook() {
   const page = currentPage();
   if (!page) return;
+  if (selectedReadingPage !== page) { selectedReading = null; selectedReadingPage = page; updateSelectionActions(); }
   const chapter = chapterById(page.chapterId);
   const text = page.text;
   const {left,right,selectedText} = pageParts(state.pageIndex);
@@ -190,6 +221,7 @@ function renderBook() {
   $('page-total').textContent = number(state.book.pages.length);
   updatePageButtons();
   renderNature();
+  requestReadingMatches(page);
   persistReading();
   for (const card of $('fragment-list').querySelectorAll('.fragment-card')) {
     const selected = card.dataset.fragmentId === state.selected?.id;
@@ -266,6 +298,7 @@ function animatePageTurn(from,to) {
 }
 
 function selectFragment(fragment) {
+  selectedReading = null; updateSelectionActions();
   state.selected = fragment;
   const index = state.book.pages.findIndex(page => page.id === fragment.pageId);
   if (index >= 0) goToPage(index);
@@ -279,9 +312,11 @@ function toggleBook() {
   $('toggle-book').querySelector('span').textContent = state.closed ? '展开书本' : '收起书本';
   $('toggle-book').setAttribute('aria-expanded', String(!state.closed));
   document.querySelector('.book-spread').setAttribute('aria-hidden', String(state.closed));
+  document.querySelector('.book-spread').inert = state.closed;
   for (const leaf of document.querySelectorAll('.leaf-copy')) leaf.tabIndex = state.closed ? -1 : 0;
   for (const button of $('floating-fragments').querySelectorAll('button')) button.disabled = state.closed;
-  bookGuideView?.bookTransition();
+  const panel = $('reader-panel');
+  bookGuideView?.bookTransition({animated:!panel.classList.contains('reader-fullscreen') && !panel.classList.contains('reader-layout-switch')});
 }
 
 function renderPeople() {
@@ -518,13 +553,14 @@ function renderNature() {
     natureIndex = state.book.pages.map((page,index)=>({page,index,matches:natureMatches(page.text,natureNames)}));
     natureIndexedBook = state.book;
   }
-  const matches = natureIndex[state.pageIndex]?.matches ?? [];
+  const matches = [...new Map([...(natureIndex[state.pageIndex]?.matches ?? []),...(pageReadingMatches.get(currentPage()) || [])].map(item=>[item.name,item])).values()].sort((a,b)=>a.offset-b.offset);
   $('nature-hint').textContent = matches.length ? `${matches.length} 个词语线索，需确认 · 点击携带这一页的原文去查找` : '这一页暂未找到词语线索。可以选取原文，记录一次自己的发现。';
   $('nature-clues').replaceChildren();
   for (const match of matches.slice(0,16)) {
-    const button = element('button','',`${match.name} · ${match.count}`);
+    const lookupName = readingLookupName(match.name,pageReadingMatches.get(currentPage()) || []);
+    const button = element('button','',`${match.name}${lookupName !== match.name ? ` → ${lookupName}（需核对）` : ''} · ${match.count}`);
     button.title = '原文中出现的名称线索，尚未确认物种身份';
-    button.addEventListener('click',()=>{ location.href = collectionLink(match.name,pageContext(match.quote)); });
+    button.addEventListener('click',()=>{ location.href = collectionLink(lookupName,pageContext(match.quote)); });
     $('nature-clues').append(button);
   }
   if (trailCache?.index === natureIndex && trailCache?.collection === collectedSpecies && trailCache?.chapter === state.chapter) return;
@@ -547,15 +583,65 @@ function renderNature() {
   if (trail.length > 80) $('nature-trail-list').append(element('p','',`共 ${trail.length} 处匹配位置，先显示前 80 处；可在章节时间轴中缩小范围。`));
 }
 
-function captureEncounter() {
+function readCurrentSelection() {
   const selection = window.getSelection();
-  const anchor = selection?.anchorNode?.parentElement;
-  const text = currentPage()?.text ?? '';
-  const selectedValue = anchor?.closest('#source-copy,.leaf-copy') ? selection.toString() : '';
-  const selected = selectedValue && text.includes(selectedValue) ? selectedValue : '';
-  encounterQuote = (selected || (state.selected?.pageId === currentPage()?.id ? state.selected.text : currentPage()?.text ?? '')).slice(0,1000);
+  const element = value => value?.nodeType === 1 ? value : value?.parentElement;
+  const inside = Boolean(element(selection?.anchorNode)?.closest('#source-copy,#page-left,#page-right') && element(selection?.focusNode)?.closest('#source-copy,#page-left,#page-right'));
+  return captureReadingSelection(currentPage(),selection?.toString(),inside);
+}
+
+function updateSelectionActions() {
+  const value = selectedReadingPage === currentPage() ? selectedReading : null;
+  const name = value?.name || '';
+  const lookupName = name ? readingLookupName(name,pageReadingMatches.get(currentPage()) || noReadingMatches) : '';
+  for (const prefix of ['reader','source']) {
+    $(`${prefix}-selection-actions`).hidden = !value;
+    $(`${prefix}-selection-label`).textContent = value ? name ? `已选原文「${name}」${lookupName !== name ? `；可能指「${lookupName}」，请核对` : ''}` : '已选一段原文，请先确认其中的物种名称。' : '';
+    $(`${prefix}-selection-lookup`).textContent = name ? `查找「${lookupName}」图片 ↗` : '填写物种名称 ↗';
+  }
+}
+
+function refreshReadingGuides() {
+  const page = currentPage();
+  if (!page || pageMotion.busy || readCurrentSelection()) return;
+  const {left,right,selectedText} = pageParts(state.pageIndex);
+  bookGuideView?.render({guides:guidesForPage(state.pageIndex),parts:[{text:left,selectedText,offset:0},{text:right,selectedText,offset:left.length}],key:page,autoLocate:false});
+}
+
+async function requestReadingMatches(page) {
+  if (pageReadingMatches.has(page)) {
+    $('reader-match-state').textContent = readingMatchFailures.has(page) ? '本地扩展线索暂不可用，仍可选中文字直接查找。' : `本页名称线索仅在本机匹配 · ${pageReadingMatches.get(page).length} 个词语线索，身份需核对`;
+    return;
+  }
+  if (pendingMatchPage === page) return;
+  matchController?.abort();
+  const controller = new AbortController(); matchController = controller; pendingMatchPage = page;
+  $('reader-match-state').textContent = '正在本地查找本页名称线索…';
+  const timer = setTimeout(()=>controller.abort(),5000);
+  try {
+    const response = await fetch('/api/reading-matches',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:page.text.slice(0,10000)}),signal:controller.signal});
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (currentPage() !== page || matchController !== controller) return;
+    const matches = readingPageMatches(page.text,data.matches); pageReadingMatches.set(page,matches);
+    $('reader-match-state').textContent = `本页名称线索仅在本机匹配 · ${matches.length} 个词语线索，身份需核对`;
+    renderNature(); updateSelectionActions(); refreshReadingGuides();
+  } catch {
+    if (currentPage() === page && matchController === controller) {
+      pageReadingMatches.set(page,[]);
+      readingMatchFailures.add(page);
+      $('reader-match-state').textContent = '本地扩展线索暂不可用，仍可选中文字直接查找。';
+    }
+  } finally { clearTimeout(timer); if (matchController === controller) pendingMatchPage = null; }
+}
+
+function captureEncounter() {
+  const direct = readCurrentSelection();
+  if (direct) { selectedReading = direct; selectedReadingPage = currentPage(); }
+  const selected = selectedReadingPage === currentPage() ? selectedReading : null;
+  encounterQuote = (selected?.quote || (state.selected?.pageId === currentPage()?.id ? state.selected.text : currentPage()?.text ?? '')).slice(0,1000);
   if ($('source-dialog').open) closeDialog('source-dialog');
-  $('encounter-name').value = selectedSpeciesName(selected || (state.selected?.text ?? ''));
+  $('encounter-name').value = selected ? selected.name : selectedSpeciesName(state.selected?.text ?? '');
   $('encounter-quote').textContent = encounterQuote;
   openDialog('encounter-dialog',$('capture-encounter'));
   $('encounter-name').focus();
@@ -705,6 +791,21 @@ $('next-page').addEventListener('click', () => { state.selected = null; returnQu
 $('toggle-book').addEventListener('click', toggleBook);
 $('capture-encounter').addEventListener('click',captureEncounter);
 $('capture-source').addEventListener('click',captureEncounter);
+document.addEventListener('selectionchange',()=>{
+  const captured = readCurrentSelection();
+  if (captured) { selectedReading = captured; selectedReadingPage = currentPage(); }
+  else if (window.getSelection()?.toString().trim()) selectedReading = null;
+  updateSelectionActions();
+});
+for (const prefix of ['reader','source']) {
+  $(`${prefix}-selection-lookup`).addEventListener('click',()=>{
+    if (!selectedReading || selectedReadingPage !== currentPage()) return;
+    if (!selectedReading.name) { captureEncounter(); return; }
+    const name = readingLookupName(selectedReading.name,pageReadingMatches.get(currentPage()) || noReadingMatches);
+    location.href = collectionLink(name,pageContext(selectedReading.quote));
+  });
+  $(`${prefix}-selection-clear`).addEventListener('click',()=>{ selectedReading = null; window.getSelection()?.removeAllRanges(); updateSelectionActions(); refreshReadingGuides(); });
+}
 $('encounter-form').addEventListener('submit',event=>{ event.preventDefault(); const name = $('encounter-name').value.trim(); if (name) location.href = collectionLink(name,pageContext(encounterQuote)); });
 $('read-source').addEventListener('click', () => {
   openDialog('source-dialog', $('read-source'));
@@ -774,7 +875,19 @@ for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).
   leaf.setAttribute('aria-label', `书籍${index === 0 ? '左' : '右'}页正文，可滚动阅读`);
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
-bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),onLookup:guide=>{ location.href = collectionLink(guide.name,pageContext(guide.quote)); }});
+bookGuideView = createBookGuideView({stage:$('book-stage'),leaves:[$('page-left'),$('page-right')],svg:$('book-guide-lines'),cards:$('book-guide-cards'),toggle:$('toggle-book-guides'),status:$('book-guide-status'),onLookup:async guide=>{
+  try {
+    const result = await guideCollector.collect(guide,pageContext(guide.quote));
+    toast(result.alreadyExists ? `「${guide.lookupName || guide.name}」已在收藏中` : `已收藏「${result.plant.name}」，继续阅读吧。`);
+    return result;
+  } catch (error) { toast(error.name === 'AbortError' ? '收藏响应较慢，请稍后重试。' : error.message || '暂时无法收藏，请稍后重试。'); throw error; }
+}});
+createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-fullscreen'),exitButton:$('exit-reader-fullscreen'),orientationButton:$('reader-orientation'),sizeSelect:$('reader-size'),onLayout:({active,orientationChanged})=>{
+  const panel = $('reader-panel'); panel.classList.add('reader-layout-switch');
+  bookGuideView.settleBookTransition();
+  (active ? panel : document.body).append($('toast'));
+  requestAnimationFrame(()=>{ bookGuideView.schedule(); requestAnimationFrame(()=>panel.classList.remove('reader-layout-switch')); });
+}});
 renderBookInfo();
 renderExplorer();
 renderBook();

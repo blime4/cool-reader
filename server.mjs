@@ -8,6 +8,7 @@ import {cacheImage,imageType} from './lib/plants-network.mjs';
 import {searchPlantSources} from './lib/plant-search.mjs';
 import {openObsidianStore} from './lib/obsidian-store.mjs';
 import {openReadingLibrary} from './lib/reading-library.mjs';
+import {buildNameMatcher} from './lib/reading-matcher.mjs';
 const project=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(project,'dist');
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.wasm':'application/wasm','.bcmap':'application/octet-stream','.pfb':'application/octet-stream','.ttf':'font/ttf','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
@@ -27,6 +28,7 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
     if(!Array.isArray(records))throw new Error('离线自然名录格式无效');
     seeds.push(...records.map(record=>({...record,offline:true})));
   }catch(error){if(error.code!=='ENOENT')throw error;}
+  const matchReadingPage=buildNameMatcher(seeds);
   const server=http.createServer(async(req,res)=>{
     try{
       const port=server.address()?.port;
@@ -35,6 +37,9 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
       if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)throw new ApiError(403,'不允许跨站访问本机资料');
       const url=new URL(req.url,`http://${req.headers.host}`);const method=req.method;
       if(url.pathname==='/api/health'&&method==='GET')return json(res,200,{app:'folio-plants',ok:true});
+      if(url.pathname==='/api/reading-matches'&&method==='POST'){
+        const input=await body(req,64*1024);return json(res,200,{matches:matchReadingPage(input?.text)});
+      }
       if(url.pathname==='/api/library'&&method==='GET')return json(res,200,library.list());
       const libraryFile=url.pathname.match(/^\/api\/library\/([a-f0-9]{40})\/file$/);
       if(libraryFile&&(method==='GET'||method==='HEAD')){

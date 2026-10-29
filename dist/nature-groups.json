@@ -278,12 +278,59 @@
     ]
   },
   {
+    "name": "槭叶荚蒾",
+    "scientificName": "Viburnum acerifolium",
+    "taxonRank": "species",
+    "kind": "plant",
+    "taxonId": "62997",
+    "aliases": [
+      "maple-leaf viburnum",
+      "mapleleaf viburnum",
+      "maple leaf viburnum"
+    ],
+    "readingTerms": [
+      "槭叶荚迷"
+    ],
+    "readingNote": "原文“槭叶荚迷”可能对应“槭叶荚蒾”的用字，仅为待核对线索，并非标准别名；请结合原书上下文确认。",
+    "tags": [
+      "阅读用字线索"
+    ],
+    "family": "Viburnaceae",
+    "genus": "Viburnum",
+    "sourceLabel": "iNaturalist 离线植物参考",
+    "sourceUrl": "https://www.inaturalist.org/taxa/62997",
+    "sourceUrls": [
+      "https://api.inaturalist.org/v1/taxa/62997",
+      "https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:326263-2",
+      "https://plants.usda.gov/DocumentLibrary/plantguide/pdf/pg_viac.pdf",
+      "https://research.fs.usda.gov/feis/species-reviews/vibace",
+      "https://plants.ces.ncsu.edu/plants/viburnum-acerifolium/"
+    ],
+    "imageUrl": "/plant-assets/910000010.jpg",
+    "imageLicense": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "imageAttribution": "Marv Elliott · cc-by-nc · iNaturalist · https://inaturalist-open-data.s3.amazonaws.com/photos/11426771/medium.jpg",
+    "description": "原文“槭叶荚迷”可能对应“槭叶荚蒾”的用字，仅为待核对线索，并非标准别名；请结合原书上下文确认。",
+    "matchNote": "原文“槭叶荚迷”可能对应“槭叶荚蒾”的用字，仅为待核对线索，并非标准别名；请结合原书上下文确认。",
+    "offline": true
+  },
+  {
     "name": "真藓门",
     "scientificName": "Bryophyta",
     "taxonRank": "phylum",
     "kind": "plant",
     "taxonId": "311249",
     "aliases": [],
+    "readingTerms": [
+      "苔藓"
+    ],
+    "readingNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳真藓门，门级类群，并非一种物种。类群代表图：灰藓 (Hypnum cupressiforme)，不代表全部成员。",
+    "readingRepresentative": {
+      "literalName": "苔藓",
+      "name": "灰藓",
+      "scientificName": "Hypnum cupressiforme",
+      "note": "广义苔藓的类群代表图：灰藓，代表真藓门供参考，不代表全部苔藓，不能据此鉴定原书物种。"
+    },
     "tags": [
       "苔藓",
       "苔藓类群"
@@ -308,6 +355,10 @@
     "kind": "plant",
     "taxonId": "64615",
     "aliases": [],
+    "readingTerms": [
+      "苔藓"
+    ],
+    "readingNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳地钱门，门级类群，并非一种物种。类群代表图：地钱 (Marchantia polymorpha)，不代表全部成员。",
     "tags": [
       "苔藓",
       "苔藓类群"
@@ -332,6 +383,10 @@
     "kind": "plant",
     "taxonId": "56327",
     "aliases": [],
+    "readingTerms": [
+      "苔藓"
+    ],
+    "readingNote": "“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳角苔门，门级类群，并非一种物种。类群代表图：Anthoceros agrestis (Anthoceros agrestis)，不代表全部成员。",
     "tags": [
       "苔藓",
       "苔藓类群"
@@ -356,6 +411,7 @@
     "kind": "plant",
     "taxonId": "163992",
     "aliases": [],
+    "readingTerms": [],
     "tags": [
       "苔藓",
       "苔藓代表种"
@@ -382,6 +438,7 @@
     "kind": "plant",
     "taxonId": "56406",
     "aliases": [],
+    "readingTerms": [],
     "tags": [
       "苔藓",
       "苔藓代表种"
@@ -408,6 +465,7 @@
     "kind": "plant",
     "taxonId": "158429",
     "aliases": [],
+    "readingTerms": [],
     "tags": [
       "苔藓",
       "苔藓代表种"

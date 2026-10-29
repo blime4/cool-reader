@@ -11,7 +11,7 @@ export function natureImageModel(item = {}) {
   if (/^\/plant-assets\/\d{1,15}\.jpg$/.test(value) || /^\/plant-images\/[0-9a-f-]{36}\.jpg$/.test(value)) url = value;
   else try { const parsed = new URL(value); if (parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port && HOSTS.has(parsed.hostname)) url = parsed.href; } catch {}
   const kind = Object.hasOwn(SHAPES,item.kind) ? item.kind : 'other';
-  const higher = ['genus','subgenus','family','subfamily','tribe','order','suborder','class','phylum','kingdom'].includes(String(item.taxonRank || '').toLocaleLowerCase());
+  const higher = item.representative === true || (Array.isArray(item.tags) && item.tags.includes('类群代表图')) || ['genus','subgenus','family','subfamily','tribe','order','suborder','class','phylum','kingdom'].includes(String(item.taxonRank || '').toLocaleLowerCase());
   return {name:String(item.name || '未命名记录').slice(0,120),kind,url,paths:SHAPES[kind],caption:'名称封面 · 待补实拍',photoLabel:higher ? '类群代表照片' : '资料参考照片'};
 }
 export function createNatureImage(item, {timeoutMs = 10000,onStateChange = () => {}} = {}) {

@@ -6,7 +6,13 @@ const svgNode = tag => document.createElementNS('http://www.w3.org/2000/svg',tag
 
 export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLookup}) {
   let enabled = true, suspended = false, transitioning = false, frame = 0, active = -1, autoPage, rendered = {guides:[],parts:[]};
-  let guideCards = [], paths = [], dots = [];
+  let guideCards = [], paths = [], dots = [], saveButtons = [], collectionLinks = [];
+  function markCollected(index,value) {
+    const button = saveButtons[index]; if (!button) return;
+    rendered.guides[index].collected = value;
+    button.textContent = value ? '已收藏 ✓' : '快速收藏'; button.disabled = value;
+    button.setAttribute('aria-busy','false'); collectionLinks[index].hidden = !value;
+  }
   function usable() { return enabled && !suspended && !transitioning && !stage.classList.contains('is-closed') && rendered.guides.length > 0; }
   function visibility() {
     const visible = usable();
@@ -83,7 +89,7 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
   }
   function render({guides,parts,key,autoLocate = false}) {
     rendered = {guides:guides.slice(0,2),parts,key,autoLocate};
-    guideCards = []; paths = []; dots = []; cards.replaceChildren(); svg.replaceChildren();
+    guideCards = []; paths = []; dots = []; saveButtons = []; collectionLinks = []; cards.replaceChildren(); svg.replaceChildren();
     for (const [index,part] of parts.entries()) paintLeaf(leaves[index],part.text,part.selectedText,enabled ? rendered.guides : [],part.offset || 0);
     for (const [index,guide] of rendered.guides.entries()) {
       const card = node('article','book-guide-card'); card.setAttribute('aria-label',`${guide.name}书引图片卡`);
@@ -92,8 +98,21 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
       const body = node('div','book-guide-body'); body.append(node('h3','',guide.name),node('p','book-guide-caution',guide.matchNote || '名称匹配 · 物种待核对'));
       const actions = node('div','book-guide-actions');
       const find = node('button','book-guide-locate','定位名称'); find.type = 'button'; find.addEventListener('click',()=>locate(index));
-      const lookup = node('button','book-guide-lookup',guide.imageUrl ? (guide.collected ? '查看 / 去收藏 ↗' : '去收藏 ↗') : '查找图片 / 去收藏 ↗'); lookup.type = 'button'; lookup.addEventListener('click',()=>onLookup(guide));
+      const lookup = node('button','book-guide-lookup',guide.collected ? '已收藏 ✓' : '快速收藏'); lookup.type = 'button'; lookup.disabled = Boolean(guide.collected);
+      lookup.addEventListener('click',async()=>{
+        if (lookup.disabled) return;
+        lookup.disabled = true; lookup.textContent = '收藏中…'; lookup.setAttribute('aria-busy','true');
+        try {
+          await onLookup(guide);
+          if (rendered.guides[index] === guide) markCollected(index,true);
+        } catch {
+          if (rendered.guides[index] === guide) { lookup.disabled = false; lookup.textContent = '重试收藏'; lookup.setAttribute('aria-busy','false'); }
+        }
+      });
+      const collectionLink = node('a','book-guide-view-collection','查看收藏 ↗'); collectionLink.href = '/plants.html#collection-title'; collectionLink.hidden = !guide.collected;
+      saveButtons.push(lookup); collectionLinks.push(collectionLink);
       actions.append(find,lookup); body.append(actions);
+      body.append(collectionLink);
       card.append(photo,body);
       if (guide.imageAttribution) { const credit = node('p','book-guide-credit',guide.imageAttribution); credit.title = guide.imageAttribution; card.append(credit); }
       card.addEventListener('mouseenter',()=>emphasize(index)); card.addEventListener('mouseleave',()=>emphasize(-1));
@@ -117,5 +136,5 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
   stage.addEventListener('transitioncancel',event=>{ if (event.target.classList.contains('physical-book') && event.propertyName === 'transform') schedule(); });
   const observer = new ResizeObserver(schedule); observer.observe(stage); observer.observe(cards);
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',event=>{ if (event.matches) { transitioning = false; visibility(); } });
-  return {render,schedule, reset() { suspended = transitioning = false; visibility(); }, suspend(value) { suspended = value; visibility(); }, bookTransition() { transitioning = !matchMedia('(prefers-reduced-motion: reduce)').matches; visibility(); }};
+  return {render,schedule,updateCollected(check) { rendered.guides.forEach((guide,index)=>{ if (check(guide)) markCollected(index,true); }); }, reset() { suspended = transitioning = false; visibility(); }, suspend(value) { suspended = value; visibility(); }, settleBookTransition() { transitioning = false; visibility(); }, bookTransition({animated = true} = {}) { transitioning = animated && !matchMedia('(prefers-reduced-motion: reduce)').matches; visibility(); }};
 }

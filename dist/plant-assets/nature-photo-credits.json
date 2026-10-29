@@ -188,5 +188,15 @@
     "imageSource": "iNaturalist",
     "sha256": "2d024596f8550d610ebf55d599e044064b44fdf84a2880dcd91669019e660f95",
     "file": "910000009.jpg"
+  },
+  {
+    "scientificName": "Viburnum acerifolium",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/11426771/medium.jpg",
+    "metadataUrl": "https://api.inaturalist.org/v1/taxa/62997",
+    "author": "Marv Elliott",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "6106d17188a285a04196f48f68967b2d2acb4d8c27bc49308a6747d412c03337",
+    "file": "910000010.jpg"
   }
 ]

@@ -1,5 +1,6 @@
 import {NATURE_WORDS} from './reading-links.mjs';
 const IMAGE_HOSTS=new Set(['static.inaturalist.org','inaturalist-open-data.s3.amazonaws.com','upload.wikimedia.org','birdnet.cornell.edu','static.avicommons.org']);
+const HIGHER_RANKS=new Set(['genus','subgenus','family','subfamily','tribe','order','suborder','class','phylum','kingdom']);
 const normalize=value=>String(value??'').trim().replace(/\s+/g,' ').toLowerCase();
 function validName(value){return typeof value==='string'&&/^[\p{Script=Han}A-Za-z][\p{Script=Han}A-Za-z -]{1,59}$/u.test(value.trim())&&( /\p{Script=Han}/u.test(value)||value.trim().length>=3);}
 function safeSource(value){if(typeof value!=='string'||value.length>2048)return '';try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
@@ -43,11 +44,18 @@ export function selectBookGuides(text,collected=[],seeds=[],{limit=2,names=NATUR
   for(const bucket of buckets.values()){
     const groups=[];
     for(const entry of bucket.entries){const group=groups.find(group=>group.every(item=>sameIdentity(item,entry)));if(group)group.push(entry);else groups.push([entry]);}
-    const ambiguous=groups.length>1;const entries=ambiguous?[]:groups[0]??[];
+    const ambiguous=groups.length>1;
+    const kinds=new Set(bucket.entries.map(item=>item.kind));
+    const canUseRepresentative=ambiguous&&kinds.size===1&&['plant','animal','bird','other'].includes(bucket.entries[0]?.kind)&&bucket.entries.every(item=>HIGHER_RANKS.has(String(item.taxonRank||'').toLowerCase())||item.broadTerm===true);
+    const entries=ambiguous?(canUseRepresentative?bucket.entries:[]):groups[0]??[];
     const base=entries.find(item=>item.collected)??entries[0];
-    const picture=entries.filter(item=>item.imageUrl).sort((a,b)=>Number(b.collected)-Number(a.collected))[0];
+    const picture=ambiguous
+      ? entries.find(item=>item.imageUrl&&normalize(item.readingRepresentative?.literalName)===normalize(bucket.name))
+      : entries.filter(item=>item.imageUrl).sort((a,b)=>Number(b.collected)-Number(a.collected))[0];
+    const representative=canUseRepresentative&&Boolean(picture);
     const isCollected=bucket.entries.some(item=>item.collected);const imageUrl=picture?.imageUrl??'';
-    candidates.push({name:bucket.name,kind:['plant','animal','bird','other'].includes(base?.kind)?base.kind:'other',imageUrl,imageAttribution:picture&&typeof picture.imageAttribution==='string'?picture.imageAttribution.slice(0,1000):'',sourceUrl:safeSource(picture?.sourceUrl??base?.sourceUrl),scientificName:typeof base?.scientificName==='string'?base.scientificName.slice(0,180):'',id:base?.id??'',taxonId:base?.taxonId??'',collected:isCollected,ambiguous,needsConfirmation:true,matchNote:ambiguous?'同名资料有多种物种，请先核对':'名称匹配 · 物种待核对',count:bucket.matches.length,matches:bucket.matches,priority:imageUrl?(isCollected?4:3):(isCollected?2:1)});
+    const representativeNote=typeof picture?.readingRepresentative?.note==='string'?picture.readingRepresentative.note.slice(0,220):'';
+    candidates.push({name:bucket.name,kind:['plant','animal','bird','other'].includes(base?.kind)?base.kind:'other',taxonRank:ambiguous?'':base?.taxonRank??'',representative,imageUrl,imageAttribution:picture&&typeof picture.imageAttribution==='string'?picture.imageAttribution.slice(0,1000):'',sourceUrl:safeSource(picture?.sourceUrl??base?.sourceUrl),scientificName:!ambiguous&&typeof base?.scientificName==='string'?base.scientificName.slice(0,180):'',id:ambiguous?'':base?.id??'',taxonId:ambiguous?'':base?.taxonId??'',collected:isCollected,ambiguous,needsConfirmation:true,matchNote:representative?representativeNote||'广义类群代表照片 · 非具体种确认，需核对':ambiguous?'同名资料有多种物种，请先核对':'名称匹配 · 物种待核对',count:bucket.matches.length,matches:bucket.matches,priority:imageUrl?(isCollected?4:3):(isCollected?2:1)});
   }
   // Prefer the complete literal name where two names cover the same word.
   const occupied=[];

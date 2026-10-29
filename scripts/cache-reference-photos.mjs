@@ -24,7 +24,7 @@ async function get(url,binary=false){
     }catch(error){last=error;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,400));}
   }throw last;
 }
-const plantTargets=[{id:163992,name:'Hypnum cupressiforme'},{id:56406,name:'Marchantia polymorpha'},{id:158429,name:'Anthoceros agrestis'}];
+const plantTargets=[{id:163992,name:'Hypnum cupressiforme'},{id:56406,name:'Marchantia polymorpha'},{id:158429,name:'Anthoceros agrestis'},{id:62997,name:'Viburnum acerifolium',category:'shrub',readingTerms:['槭叶荚迷'],aliases:['maple-leaf viburnum','mapleleaf viburnum','maple leaf viburnum'],aliasSources:['https://plants.usda.gov/DocumentLibrary/plantguide/pdf/pg_viac.pdf','https://research.fs.usda.gov/feis/species-reviews/vibace','https://plants.ces.ncsu.edu/plants/viburnum-acerifolium/']}];
 const taxonIds=[311249,64615,56327,...plantTargets.map(item=>item.id)];
 const taxa=(await get(`https://api.inaturalist.org/v1/taxa/${taxonIds.join(',')}?locale=zh-CN`)).results;
 const birds=['Corvus cornix','Corvus corone','Corvus frugilegus','Corvus macrorhynchos','Corvus sinaloae','Regulus satrapa'];
@@ -50,7 +50,8 @@ for(const result of resolved){if(!result.bytes)continue;while(true){const file=`
 function credit(entry){return `${entry.author} · ${entry.license} · ${entry.imageSource} · ${entry.sourceUrl}`;}
 for(const target of plantTargets){
   const taxon=taxa.find(item=>item.id===target.id&&item.name===target.name);const entry=manifest.find(item=>item.scientificName===target.name);
-  const record={name:taxon.preferred_common_name??taxon.name,scientificName:taxon.name,taxonRank:'species',kind:'plant',taxonId:String(taxon.id),aliases:[],tags:['苔藓','苔藓代表种'],family:taxon.ancestors.find(item=>item.rank==='family')?.name??'',genus:taxon.ancestors.find(item=>item.rank==='genus')?.name??'',sourceLabel:'iNaturalist 离线植物参考',sourceUrl:`https://www.inaturalist.org/taxa/${taxon.id}`,sourceUrls:[entry.metadataUrl],imageUrl:`/plant-assets/${entry.file}`,imageLicense:entry.license,imageSource:entry.imageSource,imageAttribution:credit(entry),description:'这是苔藓相关类群中的具体代表种，不能据书中“苔藓”一词确定该种。',matchNote:'具体代表种供比较；不是“苔藓”的同义词或原书身份鉴定。',offline:true};
+  const spellingNote='原文“槭叶荚迷”可能对应“槭叶荚蒾”的用字，仅为待核对线索，并非标准别名；请结合原书上下文确认。';
+  const record={name:taxon.preferred_common_name??taxon.name,scientificName:taxon.name,taxonRank:'species',kind:'plant',taxonId:String(taxon.id),aliases:target.aliases??[],readingTerms:target.readingTerms??[],...(target.category?{readingNote:spellingNote}:{}),tags:target.category?['阅读用字线索']:['苔藓','苔藓代表种'],family:taxon.ancestors.find(item=>item.rank==='family')?.name??'',genus:taxon.ancestors.find(item=>item.rank==='genus')?.name??'',sourceLabel:'iNaturalist 离线植物参考',sourceUrl:`https://www.inaturalist.org/taxa/${taxon.id}`,sourceUrls:[entry.metadataUrl,...(target.category?['https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:326263-2',...(target.aliasSources??[])]:[])],imageUrl:`/plant-assets/${entry.file}`,imageLicense:entry.license,imageSource:entry.imageSource,imageAttribution:credit(entry),description:target.category?spellingNote:'这是苔藓相关类群中的具体代表种，不能据书中“苔藓”一词确定该种。',matchNote:target.category?spellingNote:'具体代表种供比较；不是“苔藓”的同义词或原书身份鉴定。',offline:true};
   const index=groups.findIndex(item=>item.scientificName===record.scientificName);if(index>=0)groups[index]=record;else groups.push(record);
 }
 for(const [id,scientificName,representative] of [[311249,'Bryophyta','Hypnum cupressiforme'],[64615,'Marchantiophyta','Marchantia polymorpha'],[56327,'Anthocerotophyta','Anthoceros agrestis']]){
@@ -58,12 +59,12 @@ for(const [id,scientificName,representative] of [[311249,'Bryophyta','Hypnum cup
   const entry=manifest.find(item=>item.scientificName===representative);const member=groups.find(item=>item.scientificName===representative);
   if(!taxa.find(item=>item.name===representative).ancestor_ids.includes(id))throw new Error('Representative plant ancestry mismatch');
   const caution=`“苔藓”为广义俗称，相关植物涉及真藓门、地钱门、角苔门等，本项仅收纳${taxon.preferred_common_name??scientificName}，门级类群，并非一种物种。类群代表图：${member.name} (${representative})，不代表全部成员。`;
-  const record={name:taxon.preferred_common_name??scientificName,scientificName,taxonRank:'phylum',kind:'plant',taxonId:String(id),aliases:[],tags:['苔藓','苔藓类群'],sourceLabel:'iNaturalist 离线类群参考',sourceUrl:`https://www.inaturalist.org/taxa/${id}`,sourceUrls:[`https://api.inaturalist.org/v1/taxa/${id}`],imageUrl:`/plant-assets/${entry.file}`,imageLicense:entry.license,imageSource:entry.imageSource,imageAttribution:`类群代表图：${member.name} (${representative}) · ${credit(entry)}`,description:caution,matchNote:caution,offline:true};
+  const record={name:taxon.preferred_common_name??scientificName,scientificName,taxonRank:'phylum',kind:'plant',taxonId:String(id),aliases:[],readingTerms:['苔藓'],readingNote:caution,...(scientificName==='Bryophyta'?{readingRepresentative:{literalName:'苔藓',name:member.name,scientificName:representative,note:'广义苔藓的类群代表图：'+member.name+'，代表真藓门供参考，不代表全部苔藓，不能据此鉴定原书物种。'}}:{}),tags:['苔藓','苔藓类群'],sourceLabel:'iNaturalist 离线类群参考',sourceUrl:`https://www.inaturalist.org/taxa/${id}`,sourceUrls:[`https://api.inaturalist.org/v1/taxa/${id}`],imageUrl:`/plant-assets/${entry.file}`,imageLicense:entry.license,imageSource:entry.imageSource,imageAttribution:`类群代表图：${member.name} (${representative}) · ${credit(entry)}`,description:caution,matchNote:caution,offline:true};
   const index=groups.findIndex(item=>item.scientificName===scientificName);if(index>=0)groups[index]=record;else groups.push(record);
 }
 const crow=groups.find(item=>item.scientificName==='Corvus');const crowPhoto=manifest.find(item=>item.scientificName==='Corvus corone');
 if(crow){const caution='类群代表图：小嘴乌鸦 (Corvus corone)，不代表全部成员；“乌鸦”不能据此确定为某一种。';Object.assign(crow,{imageUrl:`/plant-assets/${crowPhoto.file}`,imageLicense:crowPhoto.license,imageSource:crowPhoto.imageSource,imageAttribution:`${caution} · ${credit(crowPhoto)}`,description:crow.description.includes(caution)?crow.description:`${crow.description} ${caution}`,matchNote:crow.matchNote.includes(caution)?crow.matchNote:`${crow.matchNote} ${caution}`});}
-const mossNames=new Set(['Bryophyta','Marchantiophyta','Anthocerotophyta',...plantTargets.map(item=>item.name)]);
+const mossNames=new Set(['Bryophyta','Marchantiophyta','Anthocerotophyta',...plantTargets.filter(item=>!item.category).map(item=>item.name)]);
 const orderedGroups=[...groups.filter(item=>!mossNames.has(item.scientificName)),...groups.filter(item=>mossNames.has(item.scientificName)&&item.taxonRank==='phylum'),...groups.filter(item=>mossNames.has(item.scientificName)&&item.taxonRank==='species')];
 await writeFile(manifestFile,JSON.stringify(manifest,null,2)+'\n');
 await writeFile(groupsFile,JSON.stringify(orderedGroups,null,2)+'\n');
