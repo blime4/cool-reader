@@ -20,7 +20,7 @@ export function normalizeTypography(value={}) {
 export function typographyPreset(settings) {
   return Object.entries(TYPOGRAPHY_PRESETS).find(([,preset])=>Object.keys(preset).every(key=>preset[key]===settings[key]))?.[0] || '';
 }
-export function createReaderTypography({panel,toggle,close,root,inputs,outputs,presetButtons=[],reset,storage,document:doc=document}) {
+export function createReaderTypography({panel,toggle,close,root,inputs,outputs,presetButtons=[],reset,storage,document:doc=document,onChange=()=>{}}) {
   function read() { try { return normalizeTypography(JSON.parse(storage?.getItem(STORAGE_KEY) || '{}')); } catch { return normalizeTypography(); } }
   let settings = read();
   function render({persist=true}={}) {
@@ -42,6 +42,7 @@ export function createReaderTypography({panel,toggle,close,root,inputs,outputs,p
     const selected = typographyPreset(settings);
     for (const button of presetButtons) button.setAttribute('aria-pressed',String(button.dataset.readerPreset === selected));
     if (persist) { try { storage?.setItem(STORAGE_KEY,JSON.stringify(settings)); } catch {} }
+    onChange({...settings});
   }
   function update(key,value) { settings = normalizeTypography({...settings,[key]:value}); render(); }
   function setOpen(value) { panel.hidden = !value; toggle.setAttribute('aria-expanded',String(value)); if (value) close.focus({preventScroll:true}); else toggle.focus({preventScroll:true}); }

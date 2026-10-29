@@ -13,6 +13,8 @@ import {createReaderNavigation} from './reader-navigation.mjs';
 import {createGuideDensity,createGuidePerimeter} from './guide-density.mjs';
 import {createGuideSize} from './guide-size.mjs';
 import {createReaderPresentationMode} from './reader-presentation-mode.mjs';
+import {createMagazineLayouter,rankMagazineFigures} from './pretext-magazine-layout.mjs';
+import {createPretextMagazineView} from './pretext-magazine-view.mjs';
 import { NATURE_WORDS, natureMatches, collectionLink, readingContext, selectedSpeciesName, contextFromSearch } from './reading-links.mjs';
 
 const $ = id => document.getElementById(id);
@@ -30,12 +32,15 @@ let loading = false;
 let lastDialogTrigger;
 let libraryBookId = '', restoringReading = false, returnQuote = '', encounterQuote = '', progressTimer;
 let natureNames = [...NATURE_WORDS], collectedSpecies = [], natureIndex = [], natureIndexedBook;
-let guideSeeds = [], bookGuideView;
+let guideSeeds = [], bookGuideView, magazineView;
 const readerPresentation = createReaderPresentationMode({buttons:document.querySelectorAll('[data-reader-presentation]'),storage:window.localStorage,onChange:value=>{
   $('reader-panel').dataset.readerPresentation = value;
   renderBook();
 }});
 $('reader-panel').dataset.readerPresentation = readerPresentation.value;
+const magazineDensitySelect = $('magazine-density');
+magazineDensitySelect.value = localStorage.getItem('folio-magazine-density') || '2';
+magazineDensitySelect.addEventListener('change',()=>{ localStorage.setItem('folio-magazine-density',magazineDensitySelect.value); renderBook(); });
 const guideDensity = createGuideDensity({select:$('guide-density'),stage:$('book-stage'),storage:window.localStorage,onChange:value=>{
   guidePage = null; bookGuideView?.setLimit(value); refreshReadingGuides();
 }});
@@ -225,9 +230,25 @@ function renderBook() {
   const chapter = chapterById(page.chapterId);
   const text = page.text;
   const {left,right,selectedText} = pageParts(state.pageIndex);
-  setHighlightedText($('page-left'), left, selectedText);
-  setHighlightedText($('page-right'), right, selectedText);
-  bookGuideView?.render({guides:guidesForPage(state.pageIndex),parts:[{text:left,selectedText,offset:0},{text:right,selectedText,offset:left.length}],key:page,autoLocate:!selectedText && !window.getSelection()?.toString()});
+  const guides = guidesForPage(state.pageIndex);
+  const mode = readerPresentation.value;
+  if (mode === 'magazine' && magazineView) {
+    const leaf = $('page-left'), style = getComputedStyle(leaf);
+    const padding = parseFloat(style.paddingLeft || 0) + parseFloat(style.paddingRight || 0);
+    const width = Math.max(120,leaf.clientWidth-padding);
+    const fontSize = parseFloat(style.fontSize) || 16;
+    magazineView.render({
+      parts:[{text:left,offset:0},{text:right,offset:left.length}],
+      guides:rankMagazineFigures(guides,Number(magazineDensitySelect.value)),
+      options:{width,lineHeight:fontSize*(parseFloat(style.lineHeight)/fontSize || 1.9),font:style.font || `${fontSize}px serif`,letterSpacing:parseFloat(style.letterSpacing)||0,figureWidth:Math.min(150,width*.38),figureHeight:112,gap:14},
+    });
+    bookGuideView?.reset();
+  } else {
+    setHighlightedText($('page-left'), left, selectedText);
+    setHighlightedText($('page-right'), right, selectedText);
+    if (mode === 'guides') bookGuideView?.render({guides,parts:[{text:left,selectedText,offset:0},{text:right,selectedText,offset:left.length}],key:page,autoLocate:!selectedText && !window.getSelection()?.toString()});
+    else bookGuideView?.reset();
+  }
   $('source-title').textContent = chapter?.title ?? '阅读原文';
   $('source-meta').textContent = `${state.book.title} · 重排第 ${number(state.pageIndex + 1)} / ${number(state.book.pages.length)} 页`;
   if ($('source-dialog').open) setHighlightedText($('source-copy'), text, selectedText);
@@ -628,6 +649,7 @@ function clearSelectionExplorer(){clearTimeout(selectionExplorerTimer);selection
 function refreshReadingGuides() {
   const page = currentPage();
   if (!page || pageMotion.busy || readCurrentSelection()) return;
+  if (readerPresentation.value !== 'guides') { renderBook(); return; }
   const {left,right,selectedText} = pageParts(state.pageIndex);
   bookGuideView?.render({guides:guidesForPage(state.pageIndex),parts:[{text:left,selectedText,offset:0},{text:right,selectedText,offset:left.length}],key:page,autoLocate:false});
 }
@@ -913,6 +935,9 @@ for (const [index, leaf] of Array.from(document.querySelectorAll('.leaf-copy')).
 }
 $('toggle-book').setAttribute('aria-expanded', 'true');
 selectionExplorer=createSelectionExplorer({root:$('selection-explorer'),getPageKey:currentPage,collector:guideCollector,getCollection:()=>collectedSpecies,onCollection:updateCollectedSpecies,onSaved:result=>toast(result.background?'已交给后台，可继续阅读；配图完成后会同步收藏。':result.alreadyExists?'已在收藏中，本次未覆盖原卡。':`已收藏「${result.plant.name}」，继续阅读吧。`)});
+magazineView=createPretextMagazineView({leaves:[$('page-left'),$('page-right')],layouter:createMagazineLayouter(),onFigure:guide=>{
+  void selectionExplorer.open({text:guide.lookupName||guide.name,context:pageContext(guide.quote||guide.name),pageKey:currentPage()});
+}});
 const generationQueueView=createGenerationQueueView({root:$('generation-queue'),onRetry:id=>selectionExplorer.retryTask(id)});
 let shownQueueWarning='';
 selectionExplorer.subscribeTasks((tasks,connection)=>{generationQueueView.update(tasks);const warning=connection?.connectionWarning||'';if(warning&&warning!==shownQueueWarning)toast(warning);shownQueueWarning=warning;});
@@ -934,13 +959,14 @@ createReaderFullscreen({panel:$('reader-panel'),enterButton:$('enter-reader-full
   bookGuideView.settleBookTransition();
   guidePerimeter.schedule();
   (active ? panel : document.body).append($('toast'));
-  requestAnimationFrame(()=>{ bookGuideView.schedule(); requestAnimationFrame(()=>panel.classList.remove('reader-layout-switch')); });
+  requestAnimationFrame(()=>{ if (readerPresentation.value === 'magazine') renderBook(); else bookGuideView.schedule(); requestAnimationFrame(()=>panel.classList.remove('reader-layout-switch')); });
 }});
 createReaderTypography({
   panel:$('reader-typography-panel'),toggle:$('reader-typography-toggle'),close:$('reader-typography-close'),root:$('reader-panel'),reset:$('reader-typography-reset'),storage:window.localStorage,
   inputs:{fontSize:$('reader-font-size'),lineHeight:$('reader-line-height'),letterSpacing:$('reader-letter-spacing'),pagePadding:$('reader-page-padding'),fontFamily:document.querySelectorAll('[name="reader-font-family"]')},
   outputs:{fontSize:$('reader-font-size-value'),lineHeight:$('reader-line-height-value'),letterSpacing:$('reader-letter-spacing-value'),pagePadding:$('reader-page-padding-value')},
   presetButtons:document.querySelectorAll('[data-reader-preset]'),
+  onChange:()=>{ if (readerPresentation.value === 'magazine') requestAnimationFrame(renderBook); },
 });
 renderBookInfo();
 renderExplorer();

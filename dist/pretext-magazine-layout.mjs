@@ -1,4 +1,4 @@
-import * as defaultPretext from '@chenglou/pretext';
+import * as defaultPretext from './vendor/pretext/layout.js';
 
 const MAX_FIGURES = 3;
 
