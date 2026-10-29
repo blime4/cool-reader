@@ -19,3 +19,6 @@ test('filtered absolute ranges translate correctly into both leaves without new 
   assert.deepEqual(left.filter(p=>p.guideIndex===0).map(p=>p.start),[5]);assert.deepEqual(right.filter(p=>p.guideIndex===0).map(p=>p.start),[4]);assert.equal(right.filter(p=>p.selected).map(p=>p.text).join(''),'还有合欢');
   assert.equal([...left,...right].map(p=>p.text).join(''),text);
 });
+test('guide kind follows explicit metadata and never guesses a kind from a literal name',()=>{
+  assert.equal(selectBookGuides('鹪鹩在这里。',[{name:'鹪鹩',kind:'bird'}],[])[0].kind,'bird');assert.equal(selectBookGuides('松鼠在这里。',[],[])[0].kind,'other');
+});

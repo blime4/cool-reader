@@ -1,0 +1,278 @@
+[
+  {
+    "name": "啄木鸟",
+    "scientificName": "Picidae",
+    "taxonRank": "family",
+    "kind": "bird",
+    "gbifKey": "9333",
+    "aliases": [
+      "啄木鸟科",
+      "啄木鳥",
+      "啄木鳥科",
+      "woodpecker",
+      "woodpeckers"
+    ],
+    "description": "啄木鸟是类群名称，本记录收纳啄木鸟科，不表示已确定某一种；可继续选择下方具体鸟种。 配图为大斑啄木鸟的代表照片，不表示所有成员都具有相同外观。",
+    "imageUrl": "/plant-assets/900000002.jpg",
+    "imageAttribution": "类群代表图：大斑啄木鸟 (Dendrocopos major) · Elio Giacone · cc-by-nc · https://inaturalist-open-data.s3.amazonaws.com/photos/259132621/large.jpeg",
+    "taxonId": "",
+    "family": "Picidae",
+    "genus": "",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/9333",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/9333/vernacularNames"
+    ],
+    "matchNote": "啄木鸟是类群名称，本记录收纳啄木鸟科，不表示已确定某一种；可继续选择下方具体鸟种。 配图为大斑啄木鸟的代表照片，不表示所有成员都具有相同外观。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ],
+    "imageLicense": "cc-by-nc"
+  },
+  {
+    "name": "鹪鹩科",
+    "scientificName": "Troglodytidae",
+    "taxonRank": "family",
+    "kind": "bird",
+    "gbifKey": "9355",
+    "aliases": [
+      "鷦鷯科",
+      "wren",
+      "wrens"
+    ],
+    "description": "鹪鹩类鸟的科级收纳入口；书中泛称可能对应不同鸟种，请核对。 配图为鹪鹩的代表照片，不表示所有成员都具有相同外观。",
+    "imageUrl": "/plant-assets/900000001.jpg",
+    "imageAttribution": "类群代表图：鹪鹩 (Nannus troglodytes) · Samuel Beyertt · cc-by-nc · https://inaturalist-open-data.s3.amazonaws.com/photos/447128005/large.jpg",
+    "taxonId": "",
+    "family": "Troglodytidae",
+    "genus": "",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/9355",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/9355/vernacularNames"
+    ],
+    "matchNote": "鹪鹩类鸟的科级收纳入口；书中泛称可能对应不同鸟种，请核对。 配图为鹪鹩的代表照片，不表示所有成员都具有相同外观。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ],
+    "imageLicense": "cc-by-nc"
+  },
+  {
+    "name": "松鼠",
+    "scientificName": "Sciuridae",
+    "taxonRank": "family",
+    "kind": "animal",
+    "gbifKey": "9456",
+    "aliases": [
+      "松鼠科",
+      "squirrel",
+      "squirrels"
+    ],
+    "description": "松鼠为宽泛类群，本记录只确定到松鼠科；不能据此确认书中的具体种。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "Sciuridae",
+    "genus": "",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/9456",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/9456/vernacularNames"
+    ],
+    "matchNote": "松鼠为宽泛类群，本记录只确定到松鼠科；不能据此确认书中的具体种。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "蚂蚁",
+    "scientificName": "Formicidae",
+    "taxonRank": "family",
+    "kind": "animal",
+    "gbifKey": "4342",
+    "aliases": [
+      "蚁科",
+      "蟻科",
+      "螞蟻",
+      "ant",
+      "ants"
+    ],
+    "description": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "Formicidae",
+    "genus": "",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/4342",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/4342/vernacularNames"
+    ],
+    "matchNote": "本记录为蚁科的类群入口，保留名称以便后续补充具体种。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "麻雀属",
+    "scientificName": "Passer",
+    "taxonRank": "genus",
+    "kind": "bird",
+    "gbifKey": "2492321",
+    "aliases": [
+      "麻雀屬",
+      "sparrow",
+      "sparrows"
+    ],
+    "description": "本记录为麻雀属，泛称雀也可能包括其他属，请结合原文核对。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "",
+    "genus": "Passer",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/2492321",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/2492321/vernacularNames"
+    ],
+    "matchNote": "本记录为麻雀属，泛称雀也可能包括其他属，请结合原文核对。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "乌鸦",
+    "scientificName": "Corvus",
+    "taxonRank": "genus",
+    "kind": "bird",
+    "gbifKey": "2482468",
+    "aliases": [
+      "鸦属",
+      "鴉屬",
+      "烏鴉",
+      "crow",
+      "crows",
+      "raven",
+      "ravens"
+    ],
+    "description": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "",
+    "genus": "Corvus",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/2482468",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/2482468/vernacularNames"
+    ],
+    "matchNote": "本记录为鸦属候选；乌鸦是俗称，不能据此确定是哪一种鸦。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "枫树",
+    "scientificName": "Acer",
+    "taxonRank": "genus",
+    "kind": "plant",
+    "gbifKey": "3189834",
+    "aliases": [
+      "枫属",
+      "槭属",
+      "槭树属",
+      "楓樹",
+      "楓屬",
+      "maple",
+      "maples"
+    ],
+    "description": "枫树为宽泛俗称，本记录提供槭属候选，不能代表所有被称为枫树的植物。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "",
+    "genus": "Acer",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/3189834",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/3189834/vernacularNames"
+    ],
+    "matchNote": "枫树为宽泛俗称，本记录提供槭属候选，不能代表所有被称为枫树的植物。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "橡树",
+    "scientificName": "Quercus",
+    "taxonRank": "genus",
+    "kind": "plant",
+    "gbifKey": "2877951",
+    "aliases": [
+      "栎属",
+      "櫟屬",
+      "橡樹",
+      "oak",
+      "oaks"
+    ],
+    "description": "本记录收纳栎属；书中的橡树还需要进一步确定具体种。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "",
+    "genus": "Quercus",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/2877951",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/2877951/vernacularNames"
+    ],
+    "matchNote": "本记录收纳栎属；书中的橡树还需要进一步确定具体种。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "类群"
+    ]
+  },
+  {
+    "name": "北美白蜡树",
+    "scientificName": "Fraxinus americana",
+    "taxonRank": "species",
+    "kind": "plant",
+    "gbifKey": "3172327",
+    "aliases": [
+      "White Ash",
+      "American Ash"
+    ],
+    "description": "本记录为北美白蜡树；中文白蜡树还可能指其他种，请核对原书背景。",
+    "imageUrl": "",
+    "imageAttribution": "",
+    "taxonId": "",
+    "family": "",
+    "genus": "",
+    "sourceLabel": "GBIF 离线类群参考",
+    "sourceUrl": "https://www.gbif.org/species/3172327",
+    "sourceUrls": [
+      "https://api.gbif.org/v1/species/3172327/vernacularNames"
+    ],
+    "matchNote": "本记录为北美白蜡树；中文白蜡树还可能指其他种，请核对原书背景。",
+    "offline": true,
+    "tags": [
+      "待核对",
+      "参考种"
+    ]
+  }
+]

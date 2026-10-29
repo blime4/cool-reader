@@ -1,0 +1,102 @@
+[
+  {
+    "scientificName": "Nannus troglodytes",
+    "file": "900000001.jpg",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/447128005/large.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Nannus%20troglodytes",
+    "author": "Samuel Beyertt",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "792002dc56c2324d5a527d37cdb298d82d1a2b0bbdc42335c435ac45f9401009"
+  },
+  {
+    "scientificName": "Dendrocopos major",
+    "file": "900000002.jpg",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/259132621/large.jpeg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Dendrocopos%20major",
+    "author": "Elio Giacone",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "e6f15f26b5d9743e3c1407f18dc9e9b01ea08a7061b050bc5d8a7fa069a59e6f"
+  },
+  {
+    "scientificName": "Thryomanes bewickii",
+    "file": "900000005.jpg",
+    "sourceUrl": "https://static.avicommons.org/bewwre-339534489-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Thryomanes%20bewickii",
+    "author": "Adam Jackson",
+    "license": "cc0",
+    "imageSource": "Avicommons",
+    "sha256": "f1fb417f2c1ad9af997aba372c7034c33ad63198bd3f265c0ad8693d1691ab38"
+  },
+  {
+    "scientificName": "Troglodytes aedon",
+    "file": "900000004.jpg",
+    "sourceUrl": "https://static.avicommons.org/houwre-339534184-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Troglodytes%20aedon",
+    "author": "Adam Jackson",
+    "license": "cc0",
+    "imageSource": "Avicommons",
+    "sha256": "67eec82d49f72a9de2a31b7012b5e647cfa6974492c508334a1476182067578b"
+  },
+  {
+    "scientificName": "Dryobates pubescens",
+    "file": "900000007.jpg",
+    "sourceUrl": "https://static.avicommons.org/dowwoo-30300134-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Dryobates%20pubescens",
+    "author": "Jon Cefus",
+    "license": "cc-by-nc-sa-3.0",
+    "imageSource": "Avicommons",
+    "sha256": "0f8a88b8d0999e06a1c7e66c7913392cad9b9367e0c40dd0ddc49837390055cf"
+  },
+  {
+    "scientificName": "Thryothorus ludovicianus",
+    "file": "900000003.jpg",
+    "sourceUrl": "https://static.avicommons.org/carwre-339603342-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Thryothorus%20ludovicianus",
+    "author": "Adam Jackson",
+    "license": "cc0",
+    "imageSource": "Avicommons",
+    "sha256": "9523b9e921e7c943c78ef3c856371a666306129bd3ba1eaf5d9cfc1a287b1d92"
+  },
+  {
+    "scientificName": "Dryocopus pileatus",
+    "file": "900000009.jpg",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/168915535/large.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Dryocopus%20pileatus",
+    "author": "Joshlaymon",
+    "license": "cc-by-sa",
+    "imageSource": "iNaturalist",
+    "sha256": "69114b52cb59f04943198d7f2d17b7d6ace0514f2c338a3270e9e9ddb8b5c637"
+  },
+  {
+    "scientificName": "Troglodytes musculus",
+    "file": "900000006.jpg",
+    "sourceUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/2074835/large.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Troglodytes%20musculus",
+    "author": "elhoffa",
+    "license": "cc-by-nc",
+    "imageSource": "iNaturalist",
+    "sha256": "6c27b67c4aa2ebd0acb0ed30fbe878553f719ce497855d2358c13ad196990f44"
+  },
+  {
+    "scientificName": "Leuconotopicus villosus",
+    "file": "9000000010.jpg",
+    "sourceUrl": "https://static.avicommons.org/haiwoo-383612779-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Leuconotopicus%20villosus",
+    "author": "Adam Jackson",
+    "license": "cc0",
+    "imageSource": "Avicommons",
+    "sha256": "afd174fb4b8f33ee8b694a4451076e26b53d997ebc3e9bdce10ca177d5737e72"
+  },
+  {
+    "scientificName": "Melanerpes carolinus",
+    "file": "900000008.jpg",
+    "sourceUrl": "https://static.avicommons.org/rebwoo-185102017-480.jpg",
+    "metadataUrl": "https://birdnet.cornell.edu/taxonomy/api/species/Melanerpes%20carolinus",
+    "author": "Maya",
+    "license": "cc-by-nc",
+    "imageSource": "Avicommons",
+    "sha256": "0aeaa13a97c94509c770b0cc7dfb8f0a15cf343dcd036f0d37ba0207fd1d85c9"
+  }
+]

@@ -1,5 +1,5 @@
 import {NATURE_WORDS} from './reading-links.mjs';
-const IMAGE_HOSTS=new Set(['static.inaturalist.org','inaturalist-open-data.s3.amazonaws.com','upload.wikimedia.org']);
+const IMAGE_HOSTS=new Set(['static.inaturalist.org','inaturalist-open-data.s3.amazonaws.com','upload.wikimedia.org','birdnet.cornell.edu','static.avicommons.org']);
 const normalize=value=>String(value??'').trim().replace(/\s+/g,' ').toLowerCase();
 function validName(value){return typeof value==='string'&&/^[\p{Script=Han}A-Za-z][\p{Script=Han}A-Za-z -]{1,59}$/u.test(value.trim())&&( /\p{Script=Han}/u.test(value)||value.trim().length>=3);}
 function safeSource(value){if(typeof value!=='string'||value.length>2048)return '';try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
@@ -47,7 +47,7 @@ export function selectBookGuides(text,collected=[],seeds=[],{limit=2,names=NATUR
     const base=entries.find(item=>item.collected)??entries[0];
     const picture=entries.filter(item=>item.imageUrl).sort((a,b)=>Number(b.collected)-Number(a.collected))[0];
     const isCollected=bucket.entries.some(item=>item.collected);const imageUrl=picture?.imageUrl??'';
-    candidates.push({name:bucket.name,imageUrl,imageAttribution:picture&&typeof picture.imageAttribution==='string'?picture.imageAttribution.slice(0,1000):'',sourceUrl:safeSource(picture?.sourceUrl??base?.sourceUrl),scientificName:typeof base?.scientificName==='string'?base.scientificName.slice(0,180):'',id:base?.id??'',taxonId:base?.taxonId??'',collected:isCollected,ambiguous,needsConfirmation:true,matchNote:ambiguous?'同名资料有多种物种，请先核对':'名称匹配 · 物种待核对',count:bucket.matches.length,matches:bucket.matches,priority:imageUrl?(isCollected?4:3):(isCollected?2:1)});
+    candidates.push({name:bucket.name,kind:['plant','animal','bird','other'].includes(base?.kind)?base.kind:'other',imageUrl,imageAttribution:picture&&typeof picture.imageAttribution==='string'?picture.imageAttribution.slice(0,1000):'',sourceUrl:safeSource(picture?.sourceUrl??base?.sourceUrl),scientificName:typeof base?.scientificName==='string'?base.scientificName.slice(0,180):'',id:base?.id??'',taxonId:base?.taxonId??'',collected:isCollected,ambiguous,needsConfirmation:true,matchNote:ambiguous?'同名资料有多种物种，请先核对':'名称匹配 · 物种待核对',count:bucket.matches.length,matches:bucket.matches,priority:imageUrl?(isCollected?4:3):(isCollected?2:1)});
   }
   // Prefer the complete literal name where two names cover the same word.
   const occupied=[];

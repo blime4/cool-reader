@@ -1,4 +1,5 @@
 import {segmentGuideText} from './book-guides.mjs';
+import {createNatureImage} from './nature-image-view.mjs';
 
 const node = (tag,className,text) => { const element = document.createElement(tag); element.className = className; if (text !== undefined) element.textContent = text; return element; };
 const svgNode = tag => document.createElementNS('http://www.w3.org/2000/svg',tag);
@@ -87,11 +88,7 @@ export function createBookGuideView({stage,leaves,svg,cards,toggle,status,onLook
     for (const [index,guide] of rendered.guides.entries()) {
       const card = node('article','book-guide-card'); card.setAttribute('aria-label',`${guide.name}书引图片卡`);
       const photo = node('div','book-guide-photo');
-      const fallback = () => { photo.replaceChildren(node('span','book-guide-placeholder',guide.ambiguous ? '同名物种 · 请核对' : '暂无图片 · 去查找')); schedule(); };
-      if (guide.imageUrl) {
-        const image = node('img',''); image.alt = `${guide.name}名称匹配的参考图片，物种待核对`; image.src = guide.imageUrl; image.referrerPolicy = 'no-referrer';
-        image.addEventListener('load',schedule); image.addEventListener('error',fallback,{once:true}); photo.append(image);
-      } else fallback();
+      photo.append(createNatureImage(guide,{onStateChange:schedule}));
       const body = node('div','book-guide-body'); body.append(node('h3','',guide.name),node('p','book-guide-caution',guide.matchNote || '名称匹配 · 物种待核对'));
       const actions = node('div','book-guide-actions');
       const find = node('button','book-guide-locate','定位名称'); find.type = 'button'; find.addEventListener('click',()=>locate(index));

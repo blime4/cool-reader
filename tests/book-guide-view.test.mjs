@@ -5,7 +5,7 @@ import {createBookGuideView} from '../dist/book-guide-view.mjs';
 test('guide SVG hidden attribute follows visible, turning and closed states',t=>{
   // SVG has no reflecting HTMLElement.hidden setter: model attributes separately.
   class Element {
-    attrs = new Map(); children = []; closed = false;
+    attrs = new Map(); children = []; closed = false; dataset = {};
     classList = {toggle:()=>{},contains:name=>name === 'is-closed' && this.closed};
     setAttribute(key,value) { this.attrs.set(key,String(value)); }
     toggleAttribute(key,force) { if (force) this.attrs.set(key,''); else this.attrs.delete(key); }

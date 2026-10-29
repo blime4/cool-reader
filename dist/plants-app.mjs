@@ -1,4 +1,6 @@
 import {contextFromSearch,readingContext,readerLink,applyReadingToCard} from './reading-links.mjs';
+import {unverifiedNameCard,taxonomyPresentation,lookupWarning,findExistingNameCard} from './collection-lookup-ui.mjs';
+import {createNatureImage} from './nature-image-view.mjs';
 const $ = id => document.getElementById(id);
 let incomingReading = contextFromSearch(location.search);
 const statuses = ['全部收藏', '想了解', '已认识', '待观察'];
@@ -11,8 +13,7 @@ const dialogFocus = new Map();
 const node = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; return el; };
 function icon(name) { const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); const use = document.createElementNS(svg.namespaceURI, 'use'); use.setAttribute('href', `#${name}`); svg.setAttribute('aria-hidden', 'true'); svg.append(use); return svg; }
 function safeUrl(value) { try { const url = new URL(value || '', location.origin); return value && ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }
-function placeholder() { const el = node('div', 'image-placeholder'); el.append(icon('leaf'), node('span', '', 'NATURE SPECIMEN')); return el; }
-function photograph(plant, cls = 'card-image') { const wrap = node('div', cls); const url = safeUrl(plant.imageUrl); if (!url) wrap.append(placeholder()); else { const image = node('img'); image.src = url; image.alt = `${plant.name}的物种图片`; image.loading = 'lazy'; image.referrerPolicy = 'no-referrer'; image.addEventListener('error', () => { image.replaceWith(placeholder()); }, { once: true }); wrap.append(image); } return wrap; }
+function photograph(plant, cls = 'card-image') { const wrap = node('div', cls); wrap.append(createNatureImage(plant)); return wrap; }
 function notify(message) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').classList.add('visible'); toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 4200); }
 function show(id, trigger = document.activeElement) { dialogFocus.set(id, trigger); if (!$(id).open) $(id).showModal(); }
 function close(id) { if (busy && id === 'edit-dialog') return; $(id).close(); const trigger = dialogFocus.get(id); if (trigger?.isConnected && !trigger.closest('dialog:not([open])')) trigger.focus(); else $('plant-query').focus(); }
@@ -53,32 +54,57 @@ function render() {
     const card = node('button', 'plant-card'); card.type = 'button'; card.setAttribute('aria-label', `查看${plant.name}的收藏详情`);
     const image = photograph(plant); image.append(node('span', 'card-status', plant.status || '想了解'), node('span', 'card-number', `No. ${String(index + 1).padStart(3, '0')}`));
     const body = node('div', 'card-body'); const title = node('div', 'card-title-line'); title.append(node('h3', '', plant.name), node('span', '', '↗')); body.append(title, node('p', 'scientific-name', plant.scientificName || '学名待补充'), node('p', 'card-taxonomy', `${plant.family || '科名待补充'} / ${plant.genus || '属名待补充'}`));
+    body.append(node('p','card-rank',taxonomyPresentation(plant).rankLabel));
     const tags = node('div', 'card-tags'); tags.append(node('span', 'card-tag', savedKind(plant) === 'animal' ? '动物' : kindLabels[savedKind(plant)])); for (const tag of (plant.tags || []).slice(0, 6)) tags.append(node('span', 'card-tag', tag)); body.append(tags);
     const source = node('div', 'card-source'); source.append(icon('book'), node('span', '', [plant.sourceBook ? `《${plant.sourceBook.replace(/^《|》$/g, '')}》` : '来源书籍待记录', plant.chapter, plant.page].filter(Boolean).join(' · '))); body.append(source); card.append(image, body);
     if (plant.imageAttribution) card.append(node('div', 'image-credit', plant.imageAttribution));
     card.addEventListener('click', () => editPlant(plant, card)); $('plant-grid').append(card);
   }
-  $('collection-summary').textContent = plants.length ? `已收藏 ${plants.length} 个物种${results.length !== plants.length ? ` · 当前显示 ${results.length} 个` : ' · 每一个，都有相遇的故事。'}` : '每一次收藏，都是认识自然的开始。';
+  $('collection-summary').textContent = plants.length ? `已留下 ${plants.length} 条收藏${results.length !== plants.length ? ` · 当前显示 ${results.length} 条` : ' · 每一条，都有相遇的故事。'}` : '每一次收藏，都是认识自然的开始。';
+}
+function keepUnverifiedName(name = searchName) {
+  const draft = unverifiedNameCard(name,lookupKind);
+  const existing = findExistingNameCard(plants,draft.name,lookupKind);
+  close('search-dialog');
+  editPlant(existing || draft,$('plant-query'),!existing,true);
+  if (existing) notify('这个名称已在收藏中，已打开原卡片；保存前可以核对并补充笔记。');
+}
+function keepNameEntry(name) {
+  const entry = node('button','keep-name-card'); entry.type = 'button';
+  entry.append(node('strong','',`先收纳「${name}」`),node('span','','暂不确认具体物种 · 不用知道拉丁名，之后再补资料'),node('small','','按原名称记录，学名、图片和分类均标为待核对 ↗'));
+  entry.addEventListener('click',()=>keepUnverifiedName(name));
+  return entry;
 }
 async function lookup(name) {
   name = name.trim(); if (!name) { $('plant-query').focus(); return; }
   lookupKind = $('lookup-kind').value;
-  const version = ++lookupVersion; searchName = name; $('plant-query').value = name; $('search-subtitle').textContent = `寻找「${name}」的资料，请选择与你相遇的那个物种。`; $('candidate-list').replaceChildren(); $('search-loading').hidden = false; error('search-error'); $('search-warning').hidden = true; show('search-dialog', $('plant-query'));
+  const version = ++lookupVersion; searchName = name; $('plant-query').value = name; $('search-subtitle').textContent = `寻找「${name}」的资料。可以核对物种或类群，也可以先把名字留下。`; $('candidate-list').replaceChildren(keepNameEntry(name)); $('search-loading').hidden = false; error('search-error'); $('search-warning').hidden = true; show('search-dialog', $('plant-query'));
   try { const data = await api(`/api/search?q=${encodeURIComponent(name)}&kind=${encodeURIComponent(lookupKind)}`); if (version !== lookupVersion || !$('search-dialog').open) return; const results = Array.isArray(data.results) ? data.results : [];
-    const warnings = [data.warning, ...(Array.isArray(data.warnings) ? data.warnings : [])].filter(value => typeof value === 'string' && value.trim());
-    if (warnings.length) { $('search-warning').textContent = [...new Set(warnings)].join(' '); $('search-warning').hidden = false; }
-    if (!results.length) { const empty = node('div', 'candidate-empty'); empty.append(node('h3', '', '暂时没有找到匹配的物种'), node('p', '', '试试规范中文名、别名或学名，例如“合欢树”也可试“合欢”。地方俗名可能对应不同物种，请结合资料来源核对；也可以先手动记录。')); $('candidate-list').append(empty); }
+    $('candidate-list').replaceChildren();
+    const warning = lookupWarning(data,results);
+    if (warning) { $('search-warning').textContent = warning; $('search-warning').title = typeof data.warning === 'string' ? data.warning : ''; $('search-warning').hidden = false; }
+    if (!results.length) { $('candidate-list').append(keepNameEntry(name)); const empty = node('div', 'candidate-empty'); empty.append(node('p', '', '暂未找到可靠资料也能收藏。之后可以补充别名、学名或照片；现在无需更换名称重试。')); $('candidate-list').append(empty); }
     for (const item of results.slice(0, 20)) {
       const card = node('button', 'candidate-card'); card.type = 'button';
       const info = node('div', 'candidate-body');
+      const taxonomy = taxonomyPresentation(item);
       info.append(node('strong', '', item.name || name), node('em', '', item.scientificName || '分类待核对'), node('p', '', `${item.family || '科名待补充'} / ${item.genus || '属名待补充'}`));
       info.append(node('p', '', `物种类群：${savedKind(item) === 'animal' ? '动物' : kindLabels[savedKind(item)]}`));
+      info.append(node('p','candidate-rank',taxonomy.rankLabel));
       const sourceLabel = item.providerLabel || item.sourceLabel;
-      if (typeof sourceLabel === 'string' && sourceLabel.trim()) info.append(node('p', '', `资料来源：${sourceLabel}`));
+      if (typeof sourceLabel === 'string' && sourceLabel.trim()) info.append(node('p', 'candidate-source',`${taxonomy.sourceType}：${sourceLabel}`));
       const matchNote = typeof item.matchNote === 'string' && item.matchNote.trim() ? item.matchNote : ({ exact: '名称精确匹配', alias: '通过别名匹配，请核对物种资料' })[item.matchType];
       if (matchNote) info.append(node('p', '', matchNote));
-      info.append(node('small', '', '选择这个物种 ↗'));
+      info.append(node('small', '', taxonomy.higher ? '收藏这个类群 ↗' : '核对并收藏 ↗'));
       card.append(photograph(item, 'candidate-image'), info);
+      if (item.imageAttribution) {
+        const attribution = String(item.imageAttribution);
+        const license = attribution.match(/\b(?:CC(?:0| BY(?:-[A-Z]{2})*)(?:[ -]\d(?:\.\d)?)?|Public domain)\b/i)?.[0];
+        const compact = attribution.replace(/\s*,?\s*uploaded by[\s\S]*$/i,'').replace(/some rights reserved[\s,]*/i,'').trim();
+        const label = compact.length > 110 ? `${compact.slice(0,107)}…` : compact;
+        const credit = node('p','candidate-photo-credit',`${label}${license && !label.includes(license) ? ` · ${license}` : ''}`);
+        credit.title = attribution; card.append(credit);
+      }
       card.addEventListener('click', () => {
         close('search-dialog');
         const kingdom = value => ['animal','bird'].includes(savedKind(value)) ? 'animal' : savedKind(value);
@@ -87,7 +113,7 @@ async function lookup(name) {
       });
       $('candidate-list').append(card);
     }
-  } catch (err) { if (version === lookupVersion && $('search-dialog').open) error('search-error', err.message); }
+  } catch (err) { if (version === lookupVersion && $('search-dialog').open) { if (!$('candidate-list').querySelector('.keep-name-card')) $('candidate-list').prepend(keepNameEntry(name)); $('search-warning').textContent = '在线资料暂不可用，仍可以先按名称收纳，稍后再补充资料。'; $('search-warning').title = err.message; $('search-warning').hidden = false; } }
   finally { if (version === lookupVersion) $('search-loading').hidden = true; }
 }
 function editPlant(plant, trigger, isNew = false, applyReading = false) {
@@ -99,6 +125,7 @@ function editPlant(plant, trigger, isNew = false, applyReading = false) {
   const values = { name: plant.name || '', kind: savedKind(plant), scientific: plant.scientificName || '', family: plant.family || '', genus: plant.genus || '', book: plant.sourceBook ?? '看不见的森林', chapter: plant.chapter || '', page: plant.page || '', notes: plant.notes || '', tags: (plant.tags || []).join('，'), status: plant.status || '想了解' };
   for (const [key, value] of Object.entries(values)) $(`edit-${key}`).value = value;
   $('edit-specimen').replaceChildren(); const photo = photograph(plant, 'image-wrap'); const details = node('div', 'specimen-details'); details.append(node('p', '', plant.description || '这个物种的资料还待补充。先留下名字和阅读笔记，慢慢认识它。'));
+  details.append(node('p','candidate-rank',taxonomyPresentation(plant).rankLabel));
   if (plant.imageAttribution) details.append(node('div', 'credit', `图片：${plant.imageAttribution}`));
   const sourceLabel = plant.providerLabel || plant.sourceLabel;
   if (typeof sourceLabel === 'string' && sourceLabel.trim()) details.append(node('p', '', `资料来源：${sourceLabel}`));
@@ -133,7 +160,7 @@ $('search-dialog').addEventListener('close', () => { lookupVersion++; $('search-
 $('lookup-form').addEventListener('submit', event => { event.preventDefault(); lookup($('plant-query').value); });
 $('add-top').addEventListener('click', () => { $('plant-query').focus(); $('plant-query').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' }); });
 for (const button of document.querySelectorAll('[data-suggest]')) button.addEventListener('click', () => lookup(button.dataset.suggest));
-$('manual-create').addEventListener('click', () => { close('search-dialog'); editPlant({ name: searchName, kind: lookupKind === 'all' ? 'plant' : lookupKind, description: '', tags: [] }, $('plant-query'), true,true); });
+$('manual-create').addEventListener('click', () => keepUnverifiedName());
 $('plant-form').addEventListener('submit', save);
 $('collection-query').addEventListener('input', event => { query = event.target.value; render(); });
 $('clear-search').addEventListener('click', () => { query = ''; filter = statuses[0]; kindFilter = 'all'; $('collection-query').value = ''; render(); });

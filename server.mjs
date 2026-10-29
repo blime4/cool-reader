@@ -18,10 +18,15 @@ async function body(req,max=2*1024*1024){
   let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>max)throw new ApiError(413,message);chunks.push(chunk);}
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw new ApiError(400,'JSON 格式无效');}
 }
-export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志',readingBookPath}={}){
+export async function createServer({dataDir=path.join(project,'data'),obsidianVault,obsidianFolder='FOLIO植物志',readingBookPath,natureCatalogPath=path.join(root,'nature-catalog.json')}={}){
   dataDir=path.resolve(dataDir);const store=obsidianVault?await openObsidianStore({vault:obsidianVault,folder:obsidianFolder,dataDir,staticDir:root}):await openStore(dataDir);
   const library=await openReadingLibrary({bookPath:readingBookPath,dataDir});
   let seeds=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
+  try{
+    const catalog=JSON.parse(await readFile(natureCatalogPath,'utf8'));const records=Array.isArray(catalog)?catalog:catalog.records;
+    if(!Array.isArray(records))throw new Error('离线自然名录格式无效');
+    seeds.push(...records.map(record=>({...record,offline:true})));
+  }catch(error){if(error.code!=='ENOENT')throw error;}
   const server=http.createServer(async(req,res)=>{
     try{
       const port=server.address()?.port;
