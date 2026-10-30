@@ -16,6 +16,22 @@ test('magazine art direction defines a dominant feature plate and restrained ins
   assert.match(css,/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 });
 
+test('magazine spreads use a quiet clothbound-book treatment even without figures', async () => {
+  const css=await readFile(new URL('../dist/magazine.css',import.meta.url),'utf8');
+  assert.match(css,/data-reader-presentation="magazine"[^}]*\.book-spread::after/);
+  assert.match(css,/linear-gradient\(90deg,\s*transparent[^;]+rgba\([^;]+transparent\)/s);
+  assert.match(css,/data-reader-presentation="magazine"[^}]*\.cover-back/);
+  assert.match(css,/data-reader-presentation="magazine"[^}]*\.page-running-title/);
+  assert.match(css,/data-reader-presentation="magazine"[^}]*\.floating-fragments/);
+});
+
+test('magazine paper avoids ruled-page texture and gives prose a calmer measure', async () => {
+  const css=await readFile(new URL('../dist/magazine.css',import.meta.url),'utf8');
+  assert.doesNotMatch(css,/repeating-linear-gradient/);
+  assert.match(css,/data-reader-presentation="magazine"[^}]*\.leaf-copy/);
+  assert.match(css,/line-height:\s*calc\(var\(--reader-line-height\)\s*\*\s*1\.06\)/);
+});
+
 test('reader supplies a larger feature geometry than inset illustrations', async () => {
   const app=await readFile(new URL('../dist/app.mjs',import.meta.url),'utf8');
   assert.match(app,/featureWidth:/);
