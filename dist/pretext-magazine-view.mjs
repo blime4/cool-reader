@@ -21,13 +21,15 @@ function renderLine(documentRef, line, offset) {
 }
 
 function renderFigure({documentRef, figure, sourceGuide, revision, currentRevision, onFigure, onFailure}) {
-  const card = createElement(documentRef, 'button', 'magazine-figure');
+  const role = figure.role === 'feature' ? 'feature' : 'inset';
+  const card = createElement(documentRef, 'button', `magazine-figure magazine-figure-${role}`);
   card.setAttribute('type', 'button');
   card.setAttribute('aria-label', `查看${figure.name}的详细资料`);
   card.style.position = 'absolute';
   card.style.left = `${figure.x}px`;
   card.style.top = `${figure.y}px`;
   card.style.width = `${figure.width}px`;
+  card.style.height = `${figure.height}px`;
   card.addEventListener('click', () => onFigure(sourceGuide));
 
   const image = createElement(documentRef, 'img', 'magazine-figure-image');
@@ -38,6 +40,7 @@ function renderFigure({documentRef, figure, sourceGuide, revision, currentRevisi
   });
 
   const caption = createElement(documentRef, 'span', 'magazine-figure-caption');
+  if (role === 'feature') caption.append(createElement(documentRef, 'small', 'magazine-figure-kicker', '自然图鉴 / FIELD NOTE'));
   caption.append(createElement(documentRef, 'strong', 'magazine-figure-name', figure.name));
   if (figure.scientificName) caption.append(createElement(documentRef, 'em', 'magazine-figure-scientific', figure.scientificName));
   const kind = figure.imageKind === 'generated' ? 'AI 示意图' : figure.imageKind === 'photo' ? '实拍资料' : '参考资料';
@@ -57,9 +60,14 @@ export function createPretextMagazineView({leaves, layouter, documentRef = docum
     latest = input;
     let supported = true;
 
+    const figureBuckets = input.parts.map(()=>[]);
+    for (const guide of input.guides) {
+      const partIndex = input.parts.findIndex(part=>guideForPart(guide,part.text,failedImages));
+      if (partIndex >= 0) figureBuckets[partIndex].push(guide);
+    }
     input.parts.forEach((part, index) => {
       const leaf = leaves[index];
-      const figures = input.guides.filter(guide => guideForPart(guide, part.text, failedImages));
+      const figures = figureBuckets[index];
       const result = layouter.layout({
         ...input.options,
         text: part.text,

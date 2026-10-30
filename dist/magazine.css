@@ -1,0 +1,145 @@
+/* 图文共读：自然文学博物志跨页 */
+.reader-panel[data-reader-presentation="magazine"] .book-stage {
+  --magazine-ink: #4f5146;
+  --magazine-muted: #888777;
+  --magazine-accent: #a34f3e;
+}
+
+.reader-panel[data-reader-presentation="magazine"] .book-leaf {
+  background-image: linear-gradient(105deg, rgba(255,255,255,.1), transparent 30%), radial-gradient(circle at 82% 18%, rgba(169,139,91,.045), transparent 38%);
+}
+
+.magazine-leaf {
+  min-height: 100%;
+  isolation: isolate;
+}
+
+.magazine-leaf::before {
+  content: "THE FIELD EDITION";
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  color: rgba(121,104,79,.36);
+  font: 5px/1 Georgia, serif;
+  letter-spacing: .24em;
+}
+
+.magazine-figure {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #ebe7da;
+  color: var(--magazine-ink);
+  text-align: left;
+  z-index: 2;
+  transition: transform .45s cubic-bezier(.2,.72,.2,1), box-shadow .3s ease;
+}
+
+.magazine-figure-feature {
+  box-shadow: 0 13px 30px rgba(72,55,34,.14), 0 1px 0 rgba(112,86,58,.12);
+}
+
+.magazine-figure-inset {
+  box-shadow: 0 7px 18px rgba(72,55,34,.1);
+}
+
+.magazine-figure:hover,
+.magazine-figure:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 17px 34px rgba(72,55,34,.2);
+}
+
+.magazine-figure:focus-visible {
+  outline: 1px solid var(--magazine-accent);
+  outline-offset: 3px;
+}
+
+.magazine-figure-image {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  object-position: 50% 38%;
+  filter: saturate(.82) contrast(.96) sepia(.045);
+  transition: transform .55s cubic-bezier(.2,.72,.2,1), filter .32s ease;
+}
+
+.magazine-figure:hover .magazine-figure-image,
+.magazine-figure:focus-visible .magazine-figure-image {
+  transform: scale(1.018);
+  filter: saturate(1) contrast(1);
+}
+
+.magazine-figure-caption {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 7px;
+  padding: 7px 9px 8px;
+  border-top: 1px solid var(--magazine-accent);
+  background: rgba(248,245,235,.96);
+}
+
+.magazine-figure-kicker {
+  grid-column: 1 / -1;
+  color: var(--magazine-accent);
+  font: 5px/1.3 Georgia, serif;
+  letter-spacing: .18em;
+}
+
+.magazine-figure-name {
+  font: 500 12px/1.25 var(--serif);
+  letter-spacing: .09em;
+}
+
+.magazine-figure-scientific {
+  align-self: end;
+  color: var(--magazine-muted);
+  font: italic 6px/1.3 Georgia, serif;
+}
+
+.magazine-figure-kind {
+  position: absolute;
+  top: -17px;
+  right: 5px;
+  padding: 3px 5px;
+  background: rgba(248,245,235,.88);
+  color: #7b806d;
+  font: 5px/1 var(--sans);
+  letter-spacing: .08em;
+}
+
+.magazine-figure-inset .magazine-figure-caption {
+  padding: 5px 7px 6px;
+}
+
+.magazine-figure-inset .magazine-figure-name {
+  font-size: 9px;
+}
+
+.magazine-figure-inset .magazine-figure-scientific {
+  display: none;
+}
+
+.reader-fullscreen .magazine-figure-feature .magazine-figure-name {
+  font-size: 15px;
+}
+
+@media (max-width: 800px) {
+  .magazine-figure-feature { max-width: 44%; }
+  .magazine-figure-inset { display: none; }
+  .magazine-figure-scientific { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magazine-figure,
+  .magazine-figure-image { transition: none; }
+  .magazine-figure:hover .magazine-figure-image,
+  .magazine-figure:focus-visible .magazine-figure-image { transform: none; }
+}

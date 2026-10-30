@@ -9,12 +9,42 @@ function imageScore(guide) {
   return 2;
 }
 
+function imageIdentity(url='') {
+  const raw = String(url).trim();
+  if (!raw) return '';
+  try {
+    const absolute = /^(?:https?:)?\/\//i.test(raw);
+    const parsed = new URL(raw,'https://folio.local/');
+    const path = parsed.pathname;
+    return absolute ? `${parsed.protocol.toLowerCase()}//${parsed.hostname.toLowerCase()}${parsed.port ? `:${parsed.port}` : ''}${path}` : path;
+  } catch {
+    return raw.split(/[?#]/,1)[0];
+  }
+}
+
+function normalizedIdentity(value) {
+  return String(value || '').trim().replace(/\s+/g,' ').toLowerCase();
+}
+
 export function rankMagazineFigures(guides,limit=2) {
   const bounded = Math.max(0,Math.min(MAX_FIGURES,Number.isFinite(Number(limit)) ? Math.floor(Number(limit)) : 2));
-  return [...(guides ?? [])].map((guide,index)=>({guide,index,score:imageScore(guide)}))
+  if (bounded === 0) return [];
+  const ranked = [...(guides ?? [])].map((guide,index)=>({guide,index,score:imageScore(guide)}))
     .filter(item=>item.score >= 0)
-    .sort((a,b)=>b.score-a.score || a.index-b.index)
-    .slice(0,bounded).map(item=>item.guide);
+    .sort((a,b)=>b.score-a.score || a.index-b.index);
+  const images = new Set(), taxonIds = new Set(), scientificNames = new Set(), unique = [];
+  for (const item of ranked) {
+    const image = imageIdentity(item.guide.imageUrl);
+    const taxonId = normalizedIdentity(item.guide.taxonId);
+    const scientificName = normalizedIdentity(item.guide.scientificName);
+    if ((image && images.has(image)) || (taxonId && taxonIds.has(taxonId)) || (scientificName && scientificNames.has(scientificName))) continue;
+    if (image) images.add(image);
+    if (taxonId) taxonIds.add(taxonId);
+    if (scientificName) scientificNames.add(scientificName);
+    unique.push(item.guide);
+    if (unique.length === bounded) break;
+  }
+  return unique;
 }
 
 function supported(api) {
@@ -28,7 +58,7 @@ export function createMagazineLayouter({pretext=defaultPretext}={}) {
     if (!cache.has(key)) cache.set(key,pretext.prepareWithSegments(text,font,{whiteSpace:'pre-wrap',letterSpacing}));
     return cache.get(key);
   }
-  function layout({text='',width,lineHeight,font,letterSpacing=0,side='left',figures=[],figureWidth=112,figureHeight=88,gap=16}) {
+  function layout({text='',width,lineHeight,font,letterSpacing=0,side='left',figures=[],figureWidth=112,figureHeight=88,featureWidth=figureWidth,featureHeight=figureHeight,gap=16}) {
     if (!supported(pretext) || !Number.isFinite(width) || width <= 0 || !Number.isFinite(lineHeight) || lineHeight <= 0 || !font) {
       return {supported:false,fallbackText:text,lines:[],figures:[],height:0};
     }
@@ -36,12 +66,15 @@ export function createMagazineLayouter({pretext=defaultPretext}={}) {
     const approxChars = Math.max(1,Math.floor(width/Math.max(8,parseFloat(font) || 16)));
     let priorBottom = 0;
     const placed = chosen.map((guide,index)=>{
+      const role = index === 0 ? 'feature' : 'inset';
+      const placedWidth = role === 'feature' ? featureWidth : figureWidth;
+      const placedHeight = role === 'feature' ? featureHeight : figureHeight;
       const occurrence = Math.max(0,text.indexOf(guide.name ?? ''));
       const naturalY = Math.floor(occurrence/approxChars)*lineHeight;
       const y = Math.max(naturalY,priorBottom ? priorBottom+lineHeight : 0);
-      priorBottom = y+figureHeight;
+      priorBottom = y+placedHeight;
       const edge = (index + (side === 'right' ? 1 : 0)) % 2 === 0 ? 'left' : 'right';
-      return {...guide,edge,x:edge==='left'?0:Math.max(0,width-figureWidth),y,width:figureWidth,height:figureHeight};
+      return {...guide,role,edge,x:edge==='left'?0:Math.max(0,width-placedWidth),y,width:placedWidth,height:placedHeight};
     });
     const handle = prepared(text,font,letterSpacing);
     const lines = [];

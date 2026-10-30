@@ -39,8 +39,10 @@ const readerPresentation = createReaderPresentationMode({buttons:document.queryS
 }});
 $('reader-panel').dataset.readerPresentation = readerPresentation.value;
 const magazineDensitySelect = $('magazine-density');
+const magazineNarrowPreference = matchMedia('(max-width: 800px)');
 magazineDensitySelect.value = localStorage.getItem('folio-magazine-density') || '2';
 magazineDensitySelect.addEventListener('change',()=>{ localStorage.setItem('folio-magazine-density',magazineDensitySelect.value); renderBook(); });
+magazineNarrowPreference.addEventListener('change',()=>{ if (readerPresentation.value === 'magazine') renderBook(); });
 const guideDensity = createGuideDensity({select:$('guide-density'),stage:$('book-stage'),storage:window.localStorage,onChange:value=>{
   guidePage = null; bookGuideView?.setLimit(value); refreshReadingGuides();
 }});
@@ -237,10 +239,11 @@ function renderBook() {
     const padding = parseFloat(style.paddingLeft || 0) + parseFloat(style.paddingRight || 0);
     const width = Math.max(120,leaf.clientWidth-padding);
     const fontSize = parseFloat(style.fontSize) || 16;
+    const magazineFigureLimit = magazineNarrowPreference.matches ? 1 : Number(magazineDensitySelect.value);
     magazineView.render({
       parts:[{text:left,offset:0},{text:right,offset:left.length}],
-      guides:rankMagazineFigures(guides,Number(magazineDensitySelect.value)),
-      options:{width,lineHeight:fontSize*(parseFloat(style.lineHeight)/fontSize || 1.9),font:style.font || `${fontSize}px serif`,letterSpacing:parseFloat(style.letterSpacing)||0,figureWidth:Math.min(150,width*.38),figureHeight:112,gap:14},
+      guides:rankMagazineFigures(guides,magazineFigureLimit),
+      options:{width,lineHeight:fontSize*(parseFloat(style.lineHeight)/fontSize || 1.9),font:style.font || `${fontSize}px serif`,letterSpacing:parseFloat(style.letterSpacing)||0,figureWidth:Math.min(118,width*.31),figureHeight:104,featureWidth:Math.min(190,width*.47),featureHeight:$('reader-panel').classList.contains('reader-fullscreen')?188:158,gap:16},
     });
     bookGuideView?.reset();
   } else {

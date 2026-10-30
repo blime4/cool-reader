@@ -53,6 +53,36 @@ test('figure ranking is bounded and prefers real then referenced then generated 
   assert.equal(rankMagazineFigures(guides,0).length,0);
 });
 
+test('figure ranking keeps one canonical entry for shared photos and taxon identities', () => {
+  const guides = [
+    {name:'wood thrush',scientificName:'Hylocichla mustelina',imageUrl:'/plant-assets/thrush.jpg',imageKind:'reference'},
+    {name:'棕林鸫',scientificName:'Hylocichla mustelina',imageUrl:'/plant-assets/thrush.jpg',imageKind:'photo'},
+    {name:'棕林鸫别名',scientificName:'Hylocichla mustelina',imageUrl:'/plant-assets/thrush-alt.jpg',imageKind:'reference'},
+    {name:'红眼莺雀',scientificName:'Vireo olivaceus',imageUrl:'/plant-assets/vireo.jpg',imageKind:'reference'},
+  ];
+  const ranked = rankMagazineFigures(guides,3);
+  assert.deepEqual(ranked.map(item=>item.name),['棕林鸫','红眼莺雀']);
+  assert.equal(new Set(ranked.map(item=>item.imageUrl)).size,ranked.length);
+});
+
+test('figure identities preserve case-sensitive paths and normalize scientific-name spacing', () => {
+  const guides = [
+    {name:'大写路径',imageUrl:'/Bird/A.jpg',imageKind:'photo'},
+    {name:'小写路径',imageUrl:'/Bird/a.jpg',imageKind:'photo'},
+    {name:'棕林鸫',scientificName:'Hylocichla  mustelina',imageUrl:'/birds/thrush-a.jpg',imageKind:'photo'},
+    {name:'wood thrush',scientificName:' Hylocichla mustelina ',imageUrl:'/birds/thrush-b.jpg',imageKind:'reference'},
+  ];
+  assert.deepEqual(rankMagazineFigures(guides,3).map(item=>item.name),['大写路径','小写路径','棕林鸫']);
+});
+
+test('a taxon id on one alias still dedupes another alias carrying only the same scientific name', () => {
+  const guides = [
+    {name:'棕林鸫',taxonId:'15980',scientificName:'Hylocichla mustelina',imageUrl:'/birds/thrush-collected.jpg',imageKind:'photo'},
+    {name:'wood thrush',scientificName:'Hylocichla mustelina',imageUrl:'/birds/thrush-seed.jpg',imageKind:'reference'},
+  ];
+  assert.deepEqual(rankMagazineFigures(guides,3).map(item=>item.name),['棕林鸫']);
+});
+
 test('unsupported Pretext runtime returns a plain-text fallback instead of partial layout', () => {
   const result = createMagazineLayouter({pretext:{}}).layout({text:'安全回退',width:200,lineHeight:24,font:'16px serif',figures:[]});
   assert.equal(result.supported,false);

@@ -32,6 +32,27 @@ test('magazine view renders selectable source-mapped lines and text-only figure 
   assert.doesNotMatch(figures[0].textContent,/<|>/);
 });
 
+test('magazine view gives the first image an editorial feature treatment', () => {
+  const left=new Node(),right=new Node();
+  const featureLayouter={layout({text,figures}) { return {supported:true,lines:[{text,x:0,y:0,sourceStart:0,sourceEnd:text.length}],figures:figures.map((guide,index)=>({...guide,x:index*80,y:24,width:70,height:60,role:index===0?'feature':'inset'}))}; }};
+  const view=createPretextMagazineView({leaves:[left,right],layouter:featureLayouter,documentRef});
+  view.render({parts:[{text:'苔藓和白蜡树',offset:0},{text:'',offset:6}],guides:[{name:'苔藓',imageUrl:'/moss.jpg'},{name:'白蜡树',imageUrl:'/ash.jpg'}],options:{width:220,lineHeight:24,font:'16px serif'}});
+  const figures=left.querySelectorAll('.magazine-figure');
+  assert.match(figures[0].className,/magazine-figure-feature/);
+  assert.match(figures[0].textContent,/自然图鉴/);
+  assert.equal(figures[0].style.height,'60px');
+  assert.match(figures[1].className,/magazine-figure-inset/);
+});
+
+test('one guide is illustrated only once across both leaves of a spread', () => {
+  const left=new Node(),right=new Node();
+  const everyFigure={layout({text,figures}) { return {supported:true,lines:[{text,x:0,y:0,sourceStart:0,sourceEnd:text.length}],figures:figures.map(guide=>({...guide,x:0,y:20,width:70,height:60,role:'feature'}))}; }};
+  const view=createPretextMagazineView({leaves:[left,right],layouter:everyFigure,documentRef});
+  view.render({parts:[{text:'左页棕林鸫',offset:0},{text:'右页再次写到棕林鸫',offset:6}],guides:[{name:'棕林鸫',imageUrl:'/thrush.jpg'}],options:{width:220,lineHeight:24,font:'16px serif'}});
+  assert.equal(left.querySelectorAll('.magazine-figure').length,1);
+  assert.equal(right.querySelectorAll('.magazine-figure').length,0);
+});
+
 test('figure click opens details and an image failure removes the obstacle then reflows', () => {
   const left=new Node(),right=new Node();let opened;let layouts=0;
   const engine={layout(input){layouts++;return layouter().layout(input);}};
