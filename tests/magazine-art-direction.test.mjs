@@ -16,18 +16,19 @@ test('magazine art direction defines a dominant feature plate and restrained ins
   assert.match(css,/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 });
 
-test('magazine spreads use a quiet clothbound-book treatment even without figures', async () => {
+test('magazine spreads preserve the bold red binding while refining the central spine', async () => {
   const css=await readFile(new URL('../dist/magazine.css',import.meta.url),'utf8');
   assert.match(css,/data-reader-presentation="magazine"[^}]*\.book-spread::after/);
   assert.match(css,/linear-gradient\(90deg,\s*transparent[^;]+rgba\([^;]+transparent\)/s);
   assert.match(css,/data-reader-presentation="magazine"[^}]*\.cover-back/);
+  assert.match(css,/box-shadow:[^;}]*inset\s+0\s+0\s+0\s+2px[^;}]*inset\s+0\s+0\s+0\s+4px/s);
   assert.match(css,/data-reader-presentation="magazine"[^}]*\.page-running-title/);
-  assert.match(css,/data-reader-presentation="magazine"[^}]*\.floating-fragments/);
 });
 
-test('magazine paper avoids ruled-page texture and gives prose a calmer measure', async () => {
+test('magazine paper keeps a restrained dense horizontal fibre texture and user-controlled measure', async () => {
   const css=await readFile(new URL('../dist/magazine.css',import.meta.url),'utf8');
-  assert.doesNotMatch(css,/repeating-linear-gradient/);
+  assert.match(css,/\.leaf-left\s*\{[^}]*repeating-linear-gradient\(0deg,[^}]+4px\)/s);
+  assert.match(css,/\.leaf-right\s*\{[^}]*repeating-linear-gradient\(0deg,[^}]+4px\)/s);
   assert.match(css,/data-reader-presentation="magazine"[^}]*\.leaf-copy/);
   assert.match(css,/line-height:\s*calc\(var\(--reader-line-height\)\s*\*\s*1\.06\)/);
 });

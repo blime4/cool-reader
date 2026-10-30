@@ -28,13 +28,15 @@ export async function createServer({dataDir=path.join(project,'data'),obsidianVa
   const library=await openReadingLibrary({bookPath:readingBookPath,dataDir});
   const generator=await openImageGeneration({dataDir,config:imageGeneration});
   const collectionTasks=createCollectionTasks({store,generator});
-  let seeds=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
+  let seeds=[],readingFallbacks=[];try{const content=JSON.parse(await readFile(path.join(root,'plants-seed.json'),'utf8'));seeds=Array.isArray(content)?content:content.plants??content.results??[];}catch(error){if(error.code!=='ENOENT')throw error;}
   try{
     const catalog=JSON.parse(await readFile(natureCatalogPath,'utf8'));const records=Array.isArray(catalog)?catalog:catalog.records;
     if(!Array.isArray(records))throw new Error('离线自然名录格式无效');
     seeds.push(...records.map(record=>({...record,offline:true})));
+    const titmouse=records.find(record=>record.scientificName==='Baeolophus bicolor'&&record.imageUrl);
+    if(titmouse)readingFallbacks.push({name:'山雀科',scientificName:'Paridae',taxonRank:'family',kind:'bird',readingTerms:['山雀'],imageUrl:titmouse.imageUrl,imageAttribution:titmouse.imageAttribution,imageLicense:titmouse.imageLicense,imageSource:titmouse.imageSource,sourceLabel:'山雀类群代表图',readingNote:'“山雀”是宽泛类群名称；这里使用美洲凤头山雀作为代表图，不代表原书已经完成物种鉴定。',readingRepresentative:{literalName:'山雀',name:titmouse.name,scientificName:titmouse.scientificName,note:'山雀类群代表图：美洲凤头山雀；仅供阅读联想，不代表物种鉴定。'},offline:true});
   }catch(error){if(error.code!=='ENOENT')throw error;}
-  const matchReadingPage=buildNameMatcher(seeds);
+  const matchReadingPage=buildNameMatcher([...seeds,...readingFallbacks]);
   const server=http.createServer(async(req,res)=>{
     try{
       const port=server.address()?.port;
